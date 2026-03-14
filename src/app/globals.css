@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --fc-navy: #1B2A4A;
+  --fc-deep: #0F172A;
+  --fc-navy-light: #243656;
+  --fc-orange: #E8652B;
+  --fc-orange-hover: #D4551E;
+  --fc-orange-light: #F5935F;
+  --fc-concrete: #F0EFEB;
+  --fc-text: #E8E6E1;
+  --fc-muted: #8B95A8;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: linear-gradient(135deg, var(--fc-navy) 0%, var(--fc-deep) 100%);
+  color: var(--fc-text);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+/* Focus */
+:focus-visible {
+  outline: 2px solid var(--fc-orange);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: rgba(232, 101, 43, 0.3);
+  color: white;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 101, 43, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(232, 101, 43, 0); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up,
+  .animate-fade-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .animate-pulse-glow {
+    animation: none;
+  }
+}
+
+/* Mapbox overrides */
+.mapboxgl-popup-content {
+  background: var(--fc-navy-light) !important;
+  color: var(--fc-text) !important;
+  border-radius: 12px !important;
+  padding: 16px !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
+}
+.mapboxgl-popup-tip {
+  border-top-color: var(--fc-navy-light) !important;
+}
+.mapboxgl-popup-close-button {
+  color: var(--fc-muted) !important;
+  font-size: 18px !important;
+}
