@@ -21,11 +21,18 @@ function timeAgo(dateStr: string): string {
   return `${months}mo ago`;
 }
 
-function getStaticMapUrl(lat: number, lng: number, w = 120, h = 120): string {
+function getStaticMapUrl(lat: number, lng: number, w = 400, h = 200): string {
   return `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/pin-s+E8652B(${lng},${lat})/${lng},${lat},14,0/${w}x${h}@2x?access_token=${MAPBOX_TOKEN}`;
 }
 
-// Inline SVG icons
+const EMOJI_REACTIONS = [
+  { emoji: "🔥", label: "fire" },
+  { emoji: "😤", label: "angry" },
+  { emoji: "💀", label: "dead" },
+  { emoji: "💪", label: "strong" },
+  { emoji: "👀", label: "eyes" },
+];
+
 function EyeIcon({ active }: { active?: boolean }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill={active ? "#E8652B" : "none"} stroke={active ? "#E8652B" : "#8B95A8"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -45,7 +52,7 @@ function CommentIcon() {
 
 function ShareIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E8652B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
       <polyline points="16 6 12 2 8 6" />
       <line x1="12" y1="2" x2="12" y2="15" />
@@ -56,11 +63,16 @@ function ShareIcon() {
 export default function ReportCard({ report }: { report: Report }) {
   const [watched, setWatched] = useState(false);
   const [watchCount, setWatchCount] = useState(report.supporters_count);
+  const [reactions, setReactions] = useState<Record<string, number>>(() => {
+    const init: Record<string, number> = {};
+    EMOJI_REACTIONS.forEach((r) => { init[r.label] = 0; });
+    return init;
+  });
+  const [reacted, setReacted] = useState<Record<string, boolean>>({});
 
   const hasPhoto = !!report.photo_url;
   const hasLocation = report.lat != null && report.lng != null;
-
-  const thumbnailSrc = hasPhoto
+  const heroSrc = hasPhoto
     ? report.photo_url!
     : hasLocation
     ? getStaticMapUrl(report.lat!, report.lng!)
@@ -73,6 +85,14 @@ export default function ReportCard({ report }: { report: Report }) {
       setWatched(true);
       setWatchCount((c) => c + 1);
     }
+  };
+
+  const handleReaction = (e: React.MouseEvent, label: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (reacted[label]) return;
+    setReactions((prev) => ({ ...prev, [label]: prev[label] + 1 }));
+    setReacted((prev) => ({ ...prev, [label]: true }));
   };
 
   const handleShare = (e: React.MouseEvent) => {
@@ -89,50 +109,68 @@ export default function ReportCard({ report }: { report: Report }) {
 
   return (
     <Link href={`/expose/${report.id}`} className="block">
-      <div className="glass-card p-3 animate-slide-up">
-        <div className="flex gap-3">
-          {/* Thumbnail — photo or static map */}
-          <div className="w-[72px] h-[72px] rounded-xl bg-white/5 shrink-0 overflow-hidden">
-            {thumbnailSrc ? (
-              <img
-                src={thumbnailSrc}
-                alt=""
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="1.5">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                  <circle cx="12" cy="9" r="2.5" />
-                </svg>
-              </div>
-            )}
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 min-w-0 flex flex-col justify-between">
-            <div>
-              <h3 className="text-[13px] font-semibold text-white truncate leading-tight">
-                {report.title}
-              </h3>
-              <div className="flex items-center gap-2 mt-1">
-                <StatusPill status={report.status} source={report.source} />
-              </div>
+      <div className="glass-card overflow-hidden animate-slide-up">
+        {/* Hero image */}
+        <div className="w-full h-[180px] bg-[var(--fc-surface-2)] relative overflow-hidden">
+          {heroSrc ? (
+            <img
+              src={heroSrc}
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="1.5">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                <circle cx="12" cy="9" r="2.5" />
+              </svg>
             </div>
-
-            <div className="flex items-center gap-2 text-[11px] text-[var(--fc-muted)] mt-1.5">
-              {report.neighborhood && (
-                <span className="truncate max-w-[120px]">{report.neighborhood}</span>
-              )}
-              <span className="opacity-40">·</span>
-              <span>{timeAgo(report.created_at)}</span>
-            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-[var(--fc-surface)]/80 via-transparent to-transparent" />
+          <div className="absolute bottom-3 left-3">
+            <StatusPill status={report.status} source={report.source} />
           </div>
         </div>
 
-        {/* Inline social action bar */}
-        <div className="flex items-center gap-1 mt-2.5 pt-2.5 border-t border-white/[0.04]">
+        {/* Content */}
+        <div className="px-3.5 pt-3 pb-2">
+          <h3 className="text-[14px] font-semibold text-white leading-tight line-clamp-2">
+            {report.title}
+          </h3>
+          <div className="flex items-center gap-2 mt-1.5 text-[11px] text-[var(--fc-muted)]">
+            {report.neighborhood && (
+              <span className="truncate max-w-[140px]">{report.neighborhood}</span>
+            )}
+            <span className="opacity-40">·</span>
+            <span>{timeAgo(report.created_at)}</span>
+            <span className="opacity-40">·</span>
+            <span>{report.source === "citizen" ? "Citizen" : "311"}</span>
+          </div>
+        </div>
+
+        {/* Emoji reaction bar */}
+        <div className="px-3.5 py-2 flex items-center gap-1.5">
+          {EMOJI_REACTIONS.map((r) => (
+            <button
+              key={r.label}
+              onClick={(e) => handleReaction(e, r.label)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] transition-all active:scale-90 ${
+                reacted[r.label]
+                  ? "bg-[var(--fc-orange)]/15 border border-[var(--fc-orange)]/30"
+                  : "bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08]"
+              }`}
+            >
+              <span className={reacted[r.label] ? "animate-heart-pop" : ""}>{r.emoji}</span>
+              {reactions[r.label] > 0 && (
+                <span className="text-[10px] text-white/60">{reactions[r.label]}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Social bar */}
+        <div className="flex items-center gap-1 px-3.5 py-2 border-t border-white/[0.04]">
           <button
             onClick={handleWatch}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
@@ -152,11 +190,19 @@ export default function ReportCard({ report }: { report: Report }) {
 
           <button
             onClick={handleShare}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-[var(--fc-muted)] hover:bg-white/5 transition-all ml-auto"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[var(--fc-orange)] hover:bg-[var(--fc-orange)]/10 transition-all ml-auto"
           >
             <ShareIcon />
             <span>Share</span>
           </button>
+        </div>
+
+        {/* Mock comment preview */}
+        <div className="px-3.5 pb-3 pt-0.5">
+          <p className="text-[11px] text-[var(--fc-muted)] truncate">
+            <span className="text-white/70 font-medium">user_nyc</span>{" "}
+            This has been like this for months...
+          </p>
         </div>
       </div>
     </Link>

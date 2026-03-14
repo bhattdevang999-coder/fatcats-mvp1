@@ -6,12 +6,15 @@ import ReportCard from "@/components/ReportCard";
 import { listReports, listNearbyReports } from "@/lib/reports";
 import type { Report } from "@/lib/types";
 
+type FeedTab = "trending" | "near" | "following";
+
 export default function FeedPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [nearby, setNearby] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showNearby, setShowNearby] = useState(false);
+  const [tab, setTab] = useState<FeedTab>("trending");
   const [locationRequested, setLocationRequested] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -23,7 +26,9 @@ export default function FeedPage() {
   }, []);
 
   const handleLocation = () => {
+    if (locationRequested) return;
     setLocationRequested(true);
+    setLocationLoading(true);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
@@ -33,21 +38,52 @@ export default function FeedPage() {
             radiusKm: 3,
           });
           setNearby(data);
-          setShowNearby(true);
+          setLocationLoading(false);
+          setTab("near");
         },
         () => {
-          setShowNearby(false);
+          setLocationLoading(false);
         }
       );
     }
   };
 
+  const TABS: { key: FeedTab; label: string }[] = [
+    { key: "trending", label: "Trending" },
+    { key: "near", label: "Near You" },
+    { key: "following", label: "Following" },
+  ];
+
+  const displayReports = tab === "near" && nearby.length > 0 ? nearby : reports;
+
   return (
     <AppShell>
-      <div className="max-w-lg mx-auto px-4 py-5">
-        {/* Location banner */}
-        {!showNearby && (
-          <div className="glass-card p-4 mb-5 flex items-center justify-between gap-3 animate-slide-up">
+      <div className="max-w-lg mx-auto px-4 py-4">
+        {/* Tab pills */}
+        <div className="flex items-center gap-2 mb-4">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => {
+                setTab(t.key);
+                if (t.key === "near" && !locationRequested) {
+                  handleLocation();
+                }
+              }}
+              className={`px-4 py-2 rounded-full text-[13px] font-semibold transition-all active:scale-95 ${
+                tab === t.key
+                  ? "bg-[var(--fc-orange)] text-white"
+                  : "bg-[var(--fc-surface)] text-[var(--fc-muted)] border border-white/[0.06] hover:bg-[var(--fc-surface-2)]"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Location banner — only if on "near" tab and location not yet enabled */}
+        {tab === "near" && !locationRequested && (
+          <div className="glass-card p-4 mb-4 flex items-center justify-between gap-3 animate-slide-up">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-[var(--fc-orange)]/10 flex items-center justify-center shrink-0">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -61,75 +97,54 @@ export default function FeedPage() {
             </div>
             <button
               onClick={handleLocation}
-              disabled={locationRequested && !showNearby}
               className="shrink-0 px-4 py-2 rounded-xl bg-[var(--fc-orange)] hover:bg-[var(--fc-orange-hover)] text-white text-[13px] font-semibold transition-all active:scale-95"
             >
-              {locationRequested ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                "Enable"
-              )}
+              Enable
             </button>
           </div>
         )}
 
-        {/* Near you section */}
-        {showNearby && nearby.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-2 h-2 rounded-full bg-[var(--fc-orange)] animate-pulse" />
-              <h2 className="text-[13px] font-semibold text-[var(--fc-orange)] uppercase tracking-wider">
-                Near you
-              </h2>
-            </div>
-            <div className="space-y-3">
-              {nearby.slice(0, 5).map((r) => (
-                <ReportCard key={r.id} report={r} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Main feed */}
+        {/* Header row */}
         <div className="flex items-center gap-2 mb-3">
           <h2 className="text-[13px] font-semibold text-white/60 uppercase tracking-wider">
-            Open exposés
+            {tab === "near" ? "Near you" : tab === "following" ? "Following" : "Open exposés"}
           </h2>
           {!loading && (
-            <span className="text-[11px] text-[var(--fc-muted)] bg-white/5 px-2 py-0.5 rounded-full">
-              {reports.length}
+            <span className="text-[11px] text-[var(--fc-muted)] bg-[var(--fc-surface)] px-2 py-0.5 rounded-full border border-white/[0.06]">
+              {displayReports.length}
             </span>
           )}
         </div>
 
-        {loading ? (
-          <div className="space-y-3">
+        {/* Loading state */}
+        {(loading || (tab === "near" && locationLoading)) ? (
+          <div className="space-y-4">
             {[0, 1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="glass-card p-4 h-28 skeleton-shimmer rounded-2xl"
+                className="rounded-2xl h-[280px] skeleton-shimmer"
                 style={{ animationDelay: `${i * 0.1}s` }}
               />
             ))}
           </div>
-        ) : reports.length === 0 ? (
+        ) : displayReports.length === 0 ? (
           <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 rounded-full bg-[var(--fc-surface)] flex items-center justify-center mx-auto mb-4">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="1.5">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                 <circle cx="12" cy="13" r="4" />
               </svg>
             </div>
-            <p className="text-[var(--fc-muted)] text-sm mb-1">
-              No reports yet
+            <p className="text-white/80 text-sm font-medium mb-1">
+              {tab === "near" ? "Nothing nearby yet" : tab === "following" ? "Not following anything yet" : "No reports yet"}
             </p>
             <p className="text-[var(--fc-muted)] text-xs">
-              Be the first to file an exposé
+              {tab === "following" ? "Watch an exposé to start following" : "Be the first to file an exposé"}
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {reports.map((r, i) => (
+          <div className="space-y-4">
+            {displayReports.map((r, i) => (
               <div
                 key={r.id}
                 style={{ animationDelay: `${i * 0.05}s` }}

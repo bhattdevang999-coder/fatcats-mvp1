@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import StatusPill from "@/components/StatusPill";
 import { getReportById, addSupport, hasSupported, markAsFixed } from "@/lib/reports";
@@ -44,7 +44,38 @@ function getCategoryAgency(category: string): string {
   }
 }
 
-// --- SVG Icons ---
+const EMOJI_REACTIONS = [
+  { emoji: "🔥", label: "fire" },
+  { emoji: "😤", label: "angry" },
+  { emoji: "💀", label: "dead" },
+  { emoji: "💪", label: "strong" },
+  { emoji: "👀", label: "eyes" },
+];
+
+const MOCK_COMMENTS = [
+  { user: "watchdog_bk", avatar: "🐱", text: "Saw this on my way to work. Insane that it's been like this for weeks.", time: "2h ago" },
+  { user: "nyc_fixer", avatar: "🔧", text: "Called 311 about this twice already. No response.", time: "5h ago" },
+  { user: "street_eye", avatar: "👁️", text: "Same issue on the next block too. Whole area is neglected.", time: "1d ago" },
+];
+
+function BackIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
+function ShareTopIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+      <polyline points="16 6 12 2 8 6" />
+      <line x1="12" y1="2" x2="12" y2="15" />
+    </svg>
+  );
+}
+
 function EyeIcon({ active }: { active?: boolean }) {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? "#E8652B" : "none"} stroke={active ? "#E8652B" : "#8B95A8"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -53,29 +84,15 @@ function EyeIcon({ active }: { active?: boolean }) {
     </svg>
   );
 }
-function CommentIcon() {
+
+function CheckIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   );
 }
-function ShareIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-      <polyline points="16 6 12 2 8 6" />
-      <line x1="12" y1="2" x2="12" y2="15" />
-    </svg>
-  );
-}
-function BookmarkIcon({ active }: { active?: boolean }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? "#E8652B" : "none"} stroke={active ? "#E8652B" : "#8B95A8"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
+
 function ExternalLinkIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -85,25 +102,24 @@ function ExternalLinkIcon() {
     </svg>
   );
 }
-function CheckIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
 
 export default function ExposeClient() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
 
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [watching, setWatching] = useState(false);
   const [alreadyWatching, setAlreadyWatching] = useState(false);
-  const [bookmarked, setBookmarked] = useState(false);
   const [isAuthor, setIsAuthor] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [reactions, setReactions] = useState<Record<string, number>>(() => {
+    const init: Record<string, number> = {};
+    EMOJI_REACTIONS.forEach((r) => { init[r.label] = 0; });
+    return init;
+  });
+  const [reacted, setReacted] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     async function load() {
@@ -141,6 +157,12 @@ export default function ExposeClient() {
     }
   };
 
+  const handleReaction = (label: string) => {
+    if (reacted[label]) return;
+    setReactions((prev) => ({ ...prev, [label]: prev[label] + 1 }));
+    setReacted((prev) => ({ ...prev, [label]: true }));
+  };
+
   const handleShare = async () => {
     if (!report) return;
     const url = window.location.href;
@@ -155,11 +177,6 @@ export default function ExposeClient() {
       await navigator.clipboard.writeText(url);
       showToast("Link copied");
     }
-  };
-
-  const handleBookmark = () => {
-    setBookmarked(!bookmarked);
-    showToast(bookmarked ? "Removed from watchlist" : "Saved to watchlist");
   };
 
   const showToast = (msg: string) => {
@@ -203,8 +220,8 @@ export default function ExposeClient() {
   return (
     <AppShell>
       <div className="max-w-lg mx-auto animate-fade-in">
-        {/* Hero image — photo or static map */}
-        <div className="w-full aspect-[16/9] bg-white/5 overflow-hidden relative">
+        {/* Hero image with overlay buttons */}
+        <div className="w-full aspect-[16/9] bg-[var(--fc-surface)] overflow-hidden relative">
           {heroSrc ? (
             <img
               src={heroSrc}
@@ -212,64 +229,35 @@ export default function ExposeClient() {
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-[var(--fc-navy)]">
+            <div className="w-full h-full flex items-center justify-center bg-[var(--fc-bg)]">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="1.2">
                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
                 <circle cx="12" cy="9" r="2.5" />
               </svg>
             </div>
           )}
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[var(--fc-deep)] via-transparent to-transparent" />
-        </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[var(--fc-bg)] via-transparent to-transparent" />
 
-        {/* Social Action Bar */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+          {/* Back button — glassmorphism */}
           <button
-            onClick={handleWatch}
-            disabled={watching}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
-              alreadyWatching
-                ? "text-[var(--fc-orange)] bg-[var(--fc-orange)]/10"
-                : "text-[var(--fc-muted)] hover:bg-white/5 active:scale-95"
-            }`}
+            onClick={() => router.back()}
+            className="absolute top-4 left-4 w-10 h-10 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center active:scale-90 transition-transform"
           >
-            <div className={alreadyWatching ? "animate-heart-pop" : ""}>
-              <EyeIcon active={alreadyWatching} />
-            </div>
-            <span>{report.supporters_count}</span>
+            <BackIcon />
           </button>
 
-          <button className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-[var(--fc-muted)] opacity-50 cursor-default">
-            <CommentIcon />
-            <span>0</span>
-          </button>
-
+          {/* Share button top-right — orange */}
           <button
             onClick={handleShare}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-[var(--fc-muted)] hover:bg-white/5 active:scale-95 transition-all"
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-[var(--fc-orange)] flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-[var(--fc-orange)]/30"
           >
-            <ShareIcon />
-            <span>Share</span>
-          </button>
-
-          <button
-            onClick={handleBookmark}
-            className={`flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-medium transition-all active:scale-95 ${
-              bookmarked
-                ? "text-[var(--fc-orange)] bg-[var(--fc-orange)]/10"
-                : "text-[var(--fc-muted)] hover:bg-white/5"
-            }`}
-          >
-            <div className={bookmarked ? "animate-heart-pop" : ""}>
-              <BookmarkIcon active={bookmarked} />
-            </div>
+            <ShareTopIcon />
           </button>
         </div>
 
         {/* Content */}
         <div className="px-4 py-5 space-y-5">
-          {/* Status + source */}
+          {/* Status + source + mark fixed */}
           <div className="flex items-center gap-3">
             <StatusPill status={report.status} source={report.source} />
             <span className="text-[11px] text-[var(--fc-muted)]">
@@ -288,13 +276,15 @@ export default function ExposeClient() {
 
           {/* Title + meta */}
           <div>
-            <h1 className="text-xl font-bold text-white leading-tight mb-1.5">
+            <h1 className="text-2xl font-bold text-white leading-tight mb-2">
               {report.title}
             </h1>
-            <div className="flex items-center gap-2 text-[13px] text-[var(--fc-muted)]">
-              {report.neighborhood && <span>{report.neighborhood}</span>}
-              <span className="opacity-40">·</span>
-              <span>{timeAgo(report.created_at)}</span>
+            <div className="flex items-center gap-2 text-[13px]">
+              {report.neighborhood && (
+                <span className="text-[var(--fc-info)] font-medium">{report.neighborhood}</span>
+              )}
+              <span className="text-[var(--fc-muted)] opacity-40">·</span>
+              <span className="text-[var(--fc-muted)]">{timeAgo(report.created_at)}</span>
             </div>
           </div>
 
@@ -305,25 +295,66 @@ export default function ExposeClient() {
             </p>
           )}
 
-          {/* Facts */}
-          <div className="glass-card p-4 space-y-2">
-            <div className="flex items-center justify-between text-[13px]">
-              <span className="text-[var(--fc-muted)]">First seen</span>
-              <span className="text-white font-medium">{new Date(report.created_at).toLocaleDateString()}</span>
-            </div>
-            <div className="flex items-center justify-between text-[13px]">
-              <span className="text-[var(--fc-muted)]">Source</span>
-              <span className="text-white font-medium">{report.source === "citizen" ? "Citizen exposé" : "NYC 311 data"}</span>
-            </div>
-            {report.category && (
-              <div className="flex items-center justify-between text-[13px]">
-                <span className="text-[var(--fc-muted)]">Category</span>
-                <span className="text-white font-medium capitalize">{report.category.replace(/_/g, " ")}</span>
-              </div>
-            )}
+          {/* Emoji reactions */}
+          <div className="flex items-center gap-2">
+            {EMOJI_REACTIONS.map((r) => (
+              <button
+                key={r.label}
+                onClick={() => handleReaction(r.label)}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[14px] transition-all active:scale-90 ${
+                  reacted[r.label]
+                    ? "bg-[var(--fc-orange)]/15 border border-[var(--fc-orange)]/30"
+                    : "bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08]"
+                }`}
+              >
+                <span className={reacted[r.label] ? "animate-heart-pop" : ""}>{r.emoji}</span>
+                {reactions[r.label] > 0 && (
+                  <span className="text-[12px] text-white/60">{reactions[r.label]}</span>
+                )}
+              </button>
+            ))}
           </div>
 
-          {/* Who's Responsible */}
+          {/* Watch button */}
+          <button
+            onClick={handleWatch}
+            disabled={watching}
+            className={`w-full flex items-center justify-center gap-2 h-12 rounded-xl text-[14px] font-semibold transition-all active:scale-[0.98] ${
+              alreadyWatching
+                ? "bg-[var(--fc-orange)]/10 text-[var(--fc-orange)] border border-[var(--fc-orange)]/20"
+                : "bg-white/5 text-white hover:bg-white/10 border border-white/[0.06]"
+            }`}
+          >
+            <div className={alreadyWatching ? "animate-heart-pop" : ""}>
+              <EyeIcon active={alreadyWatching} />
+            </div>
+            <span>{alreadyWatching ? "Watching" : "Watch this exposé"}</span>
+            <span className="text-[var(--fc-muted)] text-[12px]">· {report.supporters_count}</span>
+          </button>
+
+          {/* 2x2 Info grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="glass-card p-3.5">
+              <span className="text-[11px] text-[var(--fc-muted)] block mb-1">First seen</span>
+              <span className="text-[13px] text-white font-medium">{new Date(report.created_at).toLocaleDateString()}</span>
+            </div>
+            <div className="glass-card p-3.5">
+              <span className="text-[11px] text-[var(--fc-muted)] block mb-1">Source</span>
+              <span className="text-[13px] text-white font-medium">{report.source === "citizen" ? "Citizen exposé" : "NYC 311 data"}</span>
+            </div>
+            {report.category && (
+              <div className="glass-card p-3.5">
+                <span className="text-[11px] text-[var(--fc-muted)] block mb-1">Category</span>
+                <span className="text-[13px] text-white font-medium capitalize">{report.category.replace(/_/g, " ")}</span>
+              </div>
+            )}
+            <div className="glass-card p-3.5">
+              <span className="text-[11px] text-[var(--fc-muted)] block mb-1">Watchers</span>
+              <span className="text-[13px] text-white font-medium">{report.supporters_count}</span>
+            </div>
+          </div>
+
+          {/* Who's Responsible — agency badge */}
           {hasLocation && (
             <div className="glass-card p-4 space-y-3">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
@@ -338,22 +369,63 @@ export default function ExposeClient() {
                   This is in <span className="text-white font-medium">{report.neighborhood}</span>
                 </p>
               )}
-              <p className="text-[13px] text-[var(--fc-muted)]">
-                Responsible agency: <span className="text-white font-medium">{getCategoryAgency(report.category)}</span>
-              </p>
-              <a
-                href="https://council.nyc.gov/districts/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-[13px] text-[var(--fc-orange)] font-medium hover:underline"
-              >
-                Look up your council member
-                <ExternalLinkIcon />
-              </a>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--fc-info)]/10 border border-[var(--fc-info)]/20">
+                <span className="text-[12px] text-[var(--fc-info)] font-semibold">{getCategoryAgency(report.category)}</span>
+              </div>
+              <div>
+                <a
+                  href="https://council.nyc.gov/districts/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[13px] text-[var(--fc-orange)] font-medium hover:underline"
+                >
+                  Look up your council member
+                  <ExternalLinkIcon />
+                </a>
+              </div>
             </div>
           )}
 
-          {/* Share Card */}
+          {/* Comments section — mock */}
+          <div className="space-y-3">
+            <h3 className="text-[13px] font-semibold text-white/60 uppercase tracking-wider">
+              Comments
+            </h3>
+            <div className="space-y-3">
+              {MOCK_COMMENTS.map((c, i) => (
+                <div key={i} className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center shrink-0 text-[14px]">
+                    {c.avatar}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[12px] font-semibold text-white">{c.user}</span>
+                      <span className="text-[10px] text-[var(--fc-muted)]">{c.time}</span>
+                    </div>
+                    <p className="text-[13px] text-white/70 mt-0.5 leading-snug">{c.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Comment input bar */}
+            <div className="flex items-center gap-2 pt-2">
+              <div className="w-8 h-8 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center shrink-0 text-[12px]">
+                😺
+              </div>
+              <div className="flex-1 h-9 rounded-full bg-[var(--fc-surface-2)] border border-white/[0.06] flex items-center px-3">
+                <span className="text-[12px] text-[var(--fc-muted)]">Add a comment...</span>
+              </div>
+              <button className="w-9 h-9 rounded-full bg-[var(--fc-orange)] flex items-center justify-center shrink-0 opacity-50">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Share section */}
           <div className="space-y-3 pt-2">
             <button
               onClick={handleShare}
@@ -400,7 +472,7 @@ export default function ExposeClient() {
 
         {/* Toast */}
         {toast && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-xl border border-white/10 text-white text-sm px-5 py-2.5 rounded-xl animate-slide-up z-[60] shadow-xl">
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[var(--fc-surface)]/90 backdrop-blur-xl border border-white/10 text-white text-sm px-5 py-2.5 rounded-xl animate-slide-up z-[60] shadow-xl">
             {toast}
           </div>
         )}

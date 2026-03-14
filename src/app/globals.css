@@ -3,19 +3,24 @@
 @tailwind utilities;
 
 :root {
-  --fc-navy: #1B2A4A;
-  --fc-deep: #0F172A;
-  --fc-navy-light: #243656;
+  --fc-bg: #0F1419;
+  --fc-surface: #1A1F26;
+  --fc-surface-2: #242B35;
+  --fc-deep: #0F1419;
   --fc-orange: #E8652B;
   --fc-orange-hover: #D4551E;
-  --fc-orange-light: #F5935F;
-  --fc-concrete: #F0EFEB;
-  --fc-text: #E8E6E1;
+  --fc-orange-light: #FF7A3D;
+  --fc-text: #F1F5F9;
   --fc-muted: #8B95A8;
+  --fc-tertiary: #4B5563;
   --fc-glass: rgba(255, 255, 255, 0.04);
-  --fc-glass-border: rgba(255, 255, 255, 0.08);
+  --fc-glass-border: rgba(255, 255, 255, 0.06);
   --fc-glass-hover: rgba(255, 255, 255, 0.08);
-  --bottom-bar-height: 72px;
+  --fc-alert: #EF4444;
+  --fc-success: #22C55E;
+  --fc-info: #3B82FF;
+  --fc-navy-light: #242B35;
+  --bottom-bar-height: 64px;
   --top-bar-height: 52px;
 }
 
@@ -27,7 +32,7 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background: linear-gradient(135deg, var(--fc-navy) 0%, var(--fc-deep) 100%);
+  background: var(--fc-bg);
   color: var(--fc-text);
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
@@ -64,11 +69,9 @@ body {
 }
 
 .glass-card {
-  background: var(--fc-glass);
+  background: var(--fc-surface);
   border: 1px solid var(--fc-glass-border);
   border-radius: 16px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   transition: background 0.2s ease, transform 0.15s ease;
 }
 
@@ -143,7 +146,7 @@ body {
 }
 
 .skeleton-shimmer {
-  background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 100%);
+  background: linear-gradient(90deg, var(--fc-surface) 0%, var(--fc-surface-2) 50%, var(--fc-surface) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
@@ -173,15 +176,15 @@ body {
 
 /* Mapbox overrides */
 .mapboxgl-popup-content {
-  background: var(--fc-navy-light) !important;
+  background: var(--fc-surface) !important;
   color: var(--fc-text) !important;
   border-radius: 12px !important;
   padding: 16px !important;
   border: 1px solid rgba(255,255,255,0.1) !important;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;
 }
 .mapboxgl-popup-tip {
-  border-top-color: var(--fc-navy-light) !important;
+  border-top-color: var(--fc-surface) !important;
 }
 .mapboxgl-popup-close-button {
   color: var(--fc-muted) !important;
