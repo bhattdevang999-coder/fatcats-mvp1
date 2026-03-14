@@ -8,11 +8,14 @@ import type { Report } from "@/lib/types";
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 const CATEGORY_FILTERS = [
-  { value: "all", label: "All" },
-  { value: "pothole", label: "Potholes" },
-  { value: "streetlight", label: "Streetlights" },
-  { value: "sidewalk", label: "Sidewalks" },
-  { value: "trash", label: "Trash" },
+  { value: "all", label: "All", icon: "🗺️" },
+  { value: "road_damage", label: "Roads", icon: "🛣️" },
+  { value: "pothole", label: "Potholes", icon: "🕳️" },
+  { value: "traffic_signal", label: "Signals", icon: "🚦" },
+  { value: "street_light", label: "Lights", icon: "💡" },
+  { value: "sidewalk", label: "Sidewalks", icon: "🚶" },
+  { value: "water", label: "Water", icon: "💧" },
+  { value: "sewer", label: "Sewer", icon: "🚰" },
 ];
 
 const STATUS_FILTERS = [
@@ -30,12 +33,14 @@ export default function MapPage() {
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState("all");
   const [reports, setReports] = useState<Report[]>([]);
+  const [reportCount, setReportCount] = useState(0);
 
   // Load reports
   useEffect(() => {
     async function load() {
       const data = await listMapReports({ category, status });
       setReports(data);
+      setReportCount(data.length);
     }
     load();
   }, [category, status]);
@@ -57,7 +62,6 @@ export default function MapPage() {
       map.on("load", () => {
         setLoaded(true);
 
-        // Cluster source
         map.addSource("reports", {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
@@ -66,7 +70,6 @@ export default function MapPage() {
           clusterRadius: 50,
         });
 
-        // Cluster circles
         map.addLayer({
           id: "clusters",
           type: "circle",
@@ -83,7 +86,6 @@ export default function MapPage() {
           },
         });
 
-        // Cluster count labels
         map.addLayer({
           id: "cluster-count",
           type: "symbol",
@@ -97,7 +99,6 @@ export default function MapPage() {
           paint: { "text-color": "#ffffff" },
         });
 
-        // Individual points
         map.addLayer({
           id: "unclustered-point",
           type: "circle",
@@ -121,7 +122,6 @@ export default function MapPage() {
           },
         });
 
-        // Cluster click → zoom
         map.on("click", "clusters", (e) => {
           const features = map.queryRenderedFeatures(e.point, { layers: ["clusters"] });
           if (!features.length) return;
@@ -139,7 +139,6 @@ export default function MapPage() {
           });
         });
 
-        // Point click → popup
         map.on("click", "unclustered-point", (e) => {
           if (!e.features?.length) return;
           const props = e.features[0].properties!;
@@ -160,7 +159,6 @@ export default function MapPage() {
             .addTo(map);
         });
 
-        // Cursor style
         map.on("mouseenter", "clusters", () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", "clusters", () => { map.getCanvas().style.cursor = ""; });
         map.on("mouseenter", "unclustered-point", () => { map.getCanvas().style.cursor = "pointer"; });
@@ -178,7 +176,7 @@ export default function MapPage() {
     };
   }, []);
 
-  // Update source data when reports change
+  // Update source data
   useEffect(() => {
     if (!mapRef.current || !loaded) return;
     const source = mapRef.current.getSource("reports") as mapboxgl.GeoJSONSource | undefined;
@@ -207,30 +205,31 @@ export default function MapPage() {
 
   return (
     <AppShell>
-      <div className="flex flex-col" style={{ height: "calc(100dvh - 56px)" }}>
+      <div className="flex flex-col" style={{ height: "calc(100dvh - var(--top-bar-height) - var(--bottom-bar-height))" }}>
         {/* Filters */}
-        <div className="px-4 py-3 space-y-2 bg-[var(--fc-deep)]/50 border-b border-white/5">
-          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+        <div className="px-3 py-2.5 space-y-2 bg-[var(--fc-deep)]/80 backdrop-blur-md border-b border-white/5 relative z-10">
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
             {CATEGORY_FILTERS.map((f) => (
               <button
                 key={f.value}
                 onClick={() => setCategory(f.value)}
-                className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                className={`shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all flex items-center gap-1 ${
                   category === f.value
                     ? "bg-[var(--fc-orange)] text-white"
                     : "bg-white/5 text-white/60 hover:bg-white/10"
                 }`}
               >
-                {f.label}
+                <span>{f.icon}</span>
+                <span>{f.label}</span>
               </button>
             ))}
           </div>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
             {STATUS_FILTERS.map((f) => (
               <button
                 key={f.value}
                 onClick={() => setStatus(f.value)}
-                className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                className={`shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-medium transition-all ${
                   status === f.value
                     ? "bg-white/15 text-white"
                     : "bg-white/5 text-white/60 hover:bg-white/10"
@@ -239,6 +238,10 @@ export default function MapPage() {
                 {f.label}
               </button>
             ))}
+            {/* Report count badge */}
+            <span className="shrink-0 px-2.5 py-1.5 text-[11px] text-[var(--fc-muted)]">
+              {reportCount} reports
+            </span>
           </div>
         </div>
 
