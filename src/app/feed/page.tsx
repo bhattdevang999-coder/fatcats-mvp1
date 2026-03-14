@@ -4,21 +4,57 @@ import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import ReportCard from "@/components/ReportCard";
 import { listReports, listNearbyReports } from "@/lib/reports";
+import { getPipelineIndex } from "@/lib/types";
 import type { Report } from "@/lib/types";
 
 type FeedTab = "trending" | "near" | "following";
+type FilterKey = "all" | "open" | "in_progress" | "resolved" | "verify";
+
+const FEED_TABS: { key: FeedTab; label: string }[] = [
+  { key: "trending", label: "Trending" },
+  { key: "near", label: "Near You" },
+  { key: "following", label: "Following" },
+];
+
+const FILTER_TABS: { key: FilterKey; label: string; emoji?: string }[] = [
+  { key: "all", label: "All" },
+  { key: "open", label: "Open" },
+  { key: "in_progress", label: "In Progress" },
+  { key: "resolved", label: "Resolved" },
+  { key: "verify", label: "Verify It", emoji: "✅" },
+];
+
+function filterByPipeline(reports: Report[], filter: FilterKey): Report[] {
+  if (filter === "all") return reports;
+  return reports.filter((r) => {
+    const idx = getPipelineIndex(r.status);
+    switch (filter) {
+      case "open":
+        return idx === 0;
+      case "in_progress":
+        return idx === 1 || idx === 2; // assigned + in progress
+      case "resolved":
+        return idx === 3 || idx === 4; // resolved + verified
+      case "verify":
+        return idx === 3; // resolved but not yet verified — needs community check
+      default:
+        return true;
+    }
+  });
+}
 
 export default function FeedPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [nearby, setNearby] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<FeedTab>("trending");
+  const [filter, setFilter] = useState<FilterKey>("all");
   const [locationRequested, setLocationRequested] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
 
   useEffect(() => {
     async function load() {
-      const data = await listReports({ limit: 50 });
+      const data = await listReports({ limit: 100 });
       setReports(data);
       setLoading(false);
     }
@@ -48,20 +84,24 @@ export default function FeedPage() {
     }
   };
 
-  const TABS: { key: FeedTab; label: string }[] = [
-    { key: "trending", label: "Trending" },
-    { key: "near", label: "Near You" },
-    { key: "following", label: "Following" },
-  ];
+  const baseReports = tab === "near" && nearby.length > 0 ? nearby : reports;
+  const displayReports = filterByPipeline(baseReports, filter);
 
-  const displayReports = tab === "near" && nearby.length > 0 ? nearby : reports;
+  // Count reports in each filter for badges
+  const counts: Record<FilterKey, number> = {
+    all: baseReports.length,
+    open: filterByPipeline(baseReports, "open").length,
+    in_progress: filterByPipeline(baseReports, "in_progress").length,
+    resolved: filterByPipeline(baseReports, "resolved").length,
+    verify: filterByPipeline(baseReports, "verify").length,
+  };
 
   return (
     <AppShell>
       <div className="max-w-lg mx-auto px-4 py-4">
-        {/* Tab pills */}
-        <div className="flex items-center gap-2 mb-4">
-          {TABS.map((t) => (
+        {/* Feed type tabs */}
+        <div className="flex items-center gap-2 mb-3">
+          {FEED_TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => {
@@ -81,76 +121,69 @@ export default function FeedPage() {
           ))}
         </div>
 
-        {/* Location banner — only if on "near" tab and location not yet enabled */}
-        {tab === "near" && !locationRequested && (
-          <div className="glass-card p-4 mb-4 flex items-center justify-between gap-3 animate-slide-up">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-[var(--fc-orange)]/10 flex items-center justify-center shrink-0">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                  <circle cx="12" cy="9" r="2.5" />
-                </svg>
-              </div>
-              <p className="text-[13px] text-white/80">
-                See what&apos;s happening near you
-              </p>
-            </div>
+        {/* Pipeline filter tabs */}
+        <div className="flex items-center gap-1.5 mb-4 overflow-x-auto scrollbar-hide pb-1">
+          {FILTER_TABS.map((f) => (
             <button
-              onClick={handleLocation}
-              className="shrink-0 px-4 py-2 rounded-xl bg-[var(--fc-orange)] hover:bg-[var(--fc-orange-hover)] text-white text-[13px] font-semibold transition-all active:scale-95"
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all active:scale-95 ${
+                filter === f.key
+                  ? "bg-white/[0.12] text-white border border-white/[0.15]"
+                  : "bg-white/[0.03] text-[var(--fc-muted)] border border-white/[0.04] hover:bg-white/[0.06]"
+              }`}
             >
-              Enable
+              {f.emoji && <span className="text-[10px]">{f.emoji}</span>}
+              {f.label}
+              {counts[f.key] > 0 && (
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-full ml-0.5 ${
+                  filter === f.key ? "bg-white/20 text-white" : "bg-white/[0.06] text-[var(--fc-muted)]"
+                }`}>
+                  {counts[f.key]}
+                </span>
+              )}
             </button>
-          </div>
-        )}
-
-        {/* Header row */}
-        <div className="flex items-center gap-2 mb-3">
-          <h2 className="text-[13px] font-semibold text-white/60 uppercase tracking-wider">
-            {tab === "near" ? "Near you" : tab === "following" ? "Following" : "Open exposés"}
-          </h2>
-          {!loading && (
-            <span className="text-[11px] text-[var(--fc-muted)] bg-[var(--fc-surface)] px-2 py-0.5 rounded-full border border-white/[0.06]">
-              {displayReports.length}
-            </span>
-          )}
+          ))}
         </div>
 
         {/* Loading state */}
-        {(loading || (tab === "near" && locationLoading)) ? (
-          <div className="space-y-4">
-            {[0, 1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="rounded-2xl h-[280px] skeleton-shimmer"
-                style={{ animationDelay: `${i * 0.1}s` }}
-              />
+        {loading && (
+          <div className="flex flex-col gap-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="glass-card h-[340px] animate-pulse bg-white/[0.03]" />
             ))}
           </div>
-        ) : displayReports.length === 0 ? (
+        )}
+
+        {/* Location loading */}
+        {tab === "near" && locationLoading && (
+          <div className="text-center py-12">
+            <div className="w-8 h-8 border-2 border-[var(--fc-orange)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm text-[var(--fc-muted)]">Finding reports near you...</p>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!loading && displayReports.length === 0 && (
           <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-full bg-[var(--fc-surface)] flex items-center justify-center mx-auto mb-4">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="1.5">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
+            <div className="text-4xl mb-3">
+              {filter === "verify" ? "✅" : "📭"}
             </div>
-            <p className="text-white/80 text-sm font-medium mb-1">
-              {tab === "near" ? "Nothing nearby yet" : tab === "following" ? "Not following anything yet" : "No reports yet"}
-            </p>
-            <p className="text-[var(--fc-muted)] text-xs">
-              {tab === "following" ? "Watch an exposé to start following" : "Be the first to file an exposé"}
+            <p className="text-[var(--fc-muted)] text-sm">
+              {filter === "verify"
+                ? "No reports waiting for verification right now."
+                : filter === "all"
+                ? "No reports found."
+                : `No ${FILTER_TABS.find(f => f.key === filter)?.label.toLowerCase()} reports right now.`}
             </p>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {displayReports.map((r, i) => (
-              <div
-                key={r.id}
-                style={{ animationDelay: `${i * 0.05}s` }}
-              >
-                <ReportCard report={r} />
-              </div>
+        )}
+
+        {/* Report cards */}
+        {!loading && (
+          <div className="flex flex-col gap-4">
+            {displayReports.map((report) => (
+              <ReportCard key={report.id} report={report} />
             ))}
           </div>
         )}

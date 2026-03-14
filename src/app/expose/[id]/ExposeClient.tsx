@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import StatusPill from "@/components/StatusPill";
+import { PipelineSteps } from "@/components/StatusPill";
 import { getReportById, addSupport, hasSupported, markAsFixed } from "@/lib/reports";
 import { getDeviceHash } from "@/lib/device";
+import { getPipelineIndex, getCategoryAgency } from "@/lib/types";
 import type { Report } from "@/lib/types";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -28,20 +30,11 @@ function getStaticMapUrl(lat: number, lng: number): string {
   return `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/pin-l+E8652B(${lng},${lat})/${lng},${lat},15,0/600x300@2x?access_token=${MAPBOX_TOKEN}`;
 }
 
-function getCategoryAgency(category: string): string {
-  switch (category) {
-    case "pothole":
-    case "road_damage":
-    case "sidewalk":
-    case "street_light":
-    case "traffic_signal":
-      return "Dept of Transportation (DOT)";
-    case "water":
-    case "sewer":
-      return "Dept of Environmental Protection (DEP)";
-    default:
-      return "311";
-  }
+// Mock contractor score
+function getContractorScore(name: string): number {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0x7fffffff;
+  return 55 + (hash % 40);
 }
 
 const EMOJI_REACTIONS = [
@@ -100,6 +93,135 @@ function ExternalLinkIcon() {
       <polyline points="15 3 21 3 21 9" />
       <line x1="10" y1="14" x2="21" y2="3" />
     </svg>
+  );
+}
+
+// Timeline component for the pipeline
+function PipelineTimeline({ report }: { report: Report }) {
+  const currentIdx = getPipelineIndex(report.status);
+  const createdDate = new Date(report.created_at);
+
+  const stages = [
+    { label: "Reported", detail: `Filed via ${report.source === "citizen" ? "citizen" : "311"}`, date: createdDate, icon: "📍" },
+    { label: "Assigned", detail: report.contractor_name || getCategoryAgency(report.category), date: currentIdx >= 1 ? new Date(createdDate.getTime() + 86400000 * 2) : null, icon: "📋" },
+    { label: "In Progress", detail: report.contractor_name ? `${report.contractor_name} dispatched` : "Crew dispatched", date: currentIdx >= 2 ? new Date(createdDate.getTime() + 86400000 * 5) : null, icon: "🔧" },
+    { label: "Resolved", detail: "Marked resolved", date: currentIdx >= 3 ? new Date(createdDate.getTime() + 86400000 * 12) : null, icon: "✅" },
+    { label: "Verified", detail: "Community confirmed", date: currentIdx >= 4 ? new Date(createdDate.getTime() + 86400000 * 14) : null, icon: "🏆" },
+  ];
+
+  return (
+    <div className="space-y-0">
+      {stages.map((stage, i) => {
+        const isCompleted = i <= currentIdx;
+        const isCurrent = i === currentIdx;
+        const isLast = i === stages.length - 1;
+
+        return (
+          <div key={stage.label} className="flex gap-3">
+            {/* Vertical line + dot */}
+            <div className="flex flex-col items-center">
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-[12px] shrink-0 ${
+                  isCompleted
+                    ? isCurrent
+                      ? "bg-[var(--fc-orange)] ring-2 ring-[var(--fc-orange)]/30"
+                      : "bg-white/10"
+                    : "bg-white/[0.04] border border-white/[0.08]"
+                }`}
+              >
+                {isCompleted ? stage.icon : <span className="text-[10px] text-white/20">{i + 1}</span>}
+              </div>
+              {!isLast && (
+                <div
+                  className={`w-[2px] flex-1 min-h-[28px] ${
+                    i < currentIdx ? "bg-[var(--fc-orange)]/40" : "bg-white/[0.06]"
+                  }`}
+                />
+              )}
+            </div>
+
+            {/* Content */}
+            <div className={`pb-4 ${!isCompleted ? "opacity-30" : ""}`}>
+              <p className={`text-[13px] font-semibold ${isCurrent ? "text-[var(--fc-orange)]" : "text-white"}`}>
+                {stage.label}
+              </p>
+              <p className="text-[11px] text-[var(--fc-muted)] mt-0.5">{stage.detail}</p>
+              {stage.date && (
+                <p className="text-[10px] text-[var(--fc-muted)] opacity-60 mt-0.5">
+                  {stage.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Verify vote component
+function VerifyVote({ onVerified }: { report: Report; onVerified: () => void }) {
+  const [voted, setVoted] = useState<"yes" | "no" | null>(null);
+  const [yesCount] = useState(Math.floor(Math.random() * 8) + 3);
+  const [noCount] = useState(Math.floor(Math.random() * 3));
+
+  const handleVote = (vote: "yes" | "no") => {
+    if (voted) return;
+    setVoted(vote);
+    if (vote === "yes") {
+      onVerified();
+    }
+  };
+
+  const totalVotes = yesCount + noCount + (voted ? 1 : 0);
+  const yesPercent = Math.round(((yesCount + (voted === "yes" ? 1 : 0)) / totalVotes) * 100);
+
+  return (
+    <div className="glass-card p-4 space-y-3 border border-green-500/10">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">🔍</span>
+        <h3 className="text-sm font-semibold text-white">Is this actually fixed?</h3>
+      </div>
+      <p className="text-[12px] text-[var(--fc-muted)]">
+        This issue was marked resolved. Help verify — your vote builds the accountability record.
+      </p>
+
+      {!voted ? (
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleVote("yes")}
+            className="flex-1 h-11 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-[13px] font-semibold hover:bg-green-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <span>👍</span> Yes, it&apos;s fixed
+          </button>
+          <button
+            onClick={() => handleVote("no")}
+            className="flex-1 h-11 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[13px] font-semibold hover:bg-red-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <span>👎</span> Nope, still broken
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className={voted === "yes" ? "text-green-400" : "text-red-400"}>
+              {voted === "yes" ? "✅ You confirmed the fix" : "❌ You flagged this as unresolved"}
+            </span>
+          </div>
+          {/* Vote bar */}
+          <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-green-400 rounded-full transition-all duration-500"
+              style={{ width: `${yesPercent}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-[10px] text-[var(--fc-muted)]">
+            <span>{yesPercent}% say fixed</span>
+            <span>{totalVotes} votes</span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -168,11 +290,7 @@ export default function ExposeClient() {
     const url = window.location.href;
     const text = `🚨 ${report.title} — ${report.neighborhood || "NYC"}. See the exposé on FatCats: ${url} #FatCatsNYC #PointExposeFix`;
     if (navigator.share) {
-      try {
-        await navigator.share({ title: "Exposé on FatCats", text, url });
-      } catch {
-        // user cancelled
-      }
+      try { await navigator.share({ title: "Exposé on FatCats", text, url }); } catch {}
     } else {
       await navigator.clipboard.writeText(url);
       showToast("Link copied");
@@ -205,13 +323,16 @@ export default function ExposeClient() {
     );
   }
 
-  const hasPhoto = !!report.photo_url;
   const hasLocation = report.lat != null && report.lng != null;
-  const heroSrc = hasPhoto
-    ? report.photo_url!
+  const heroSrc = report.photo_url
+    ? report.photo_url
     : hasLocation
     ? getStaticMapUrl(report.lat!, report.lng!)
     : null;
+
+  const pipelineIdx = getPipelineIndex(report.status);
+  const isResolved = pipelineIdx >= 3;
+  const isVerified = pipelineIdx >= 4;
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
   const shareText = `🚨 ${report.title} — ${report.neighborhood || "NYC"}. See the exposé on FatCats:`;
@@ -220,14 +341,10 @@ export default function ExposeClient() {
   return (
     <AppShell>
       <div className="max-w-lg mx-auto animate-fade-in">
-        {/* Hero image with overlay buttons */}
+        {/* Hero image */}
         <div className="w-full aspect-[16/9] bg-[var(--fc-surface)] overflow-hidden relative">
           {heroSrc ? (
-            <img
-              src={heroSrc}
-              alt={report.title}
-              className="w-full h-full object-cover"
-            />
+            <img src={heroSrc} alt={report.title} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-[var(--fc-bg)]">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="1.2">
@@ -237,16 +354,12 @@ export default function ExposeClient() {
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-[var(--fc-bg)] via-transparent to-transparent" />
-
-          {/* Back button — glassmorphism */}
           <button
             onClick={() => router.back()}
             className="absolute top-4 left-4 w-10 h-10 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center active:scale-90 transition-transform"
           >
             <BackIcon />
           </button>
-
-          {/* Share button top-right — orange */}
           <button
             onClick={handleShare}
             className="absolute top-4 right-4 w-10 h-10 rounded-full bg-[var(--fc-orange)] flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-[var(--fc-orange)]/30"
@@ -255,30 +368,35 @@ export default function ExposeClient() {
           </button>
         </div>
 
-        {/* Content */}
         <div className="px-4 py-5 space-y-5">
-          {/* Status + source + mark fixed */}
-          <div className="flex items-center gap-3">
-            <StatusPill status={report.status} source={report.source} />
-            <span className="text-[11px] text-[var(--fc-muted)]">
-              {report.source === "citizen" ? "Citizen exposé" : "City data"}
-            </span>
-            {isAuthor && report.status !== "fixed" && (
-              <button
-                onClick={handleMarkFixed}
-                className="ml-auto flex items-center gap-1 text-[11px] text-green-400 hover:text-green-300 transition-colors"
-              >
-                <CheckIcon />
-                <span>Mark fixed</span>
-              </button>
-            )}
+          {/* Status + pipeline bar */}
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              <StatusPill status={report.status} />
+              <span className="text-[11px] text-[var(--fc-muted)]">
+                {report.source === "citizen" ? "Citizen exposé" : "City data"}
+              </span>
+              {isAuthor && report.status !== "fixed" && report.status !== "verified" && (
+                <button
+                  onClick={handleMarkFixed}
+                  className="ml-auto flex items-center gap-1 text-[11px] text-green-400 hover:text-green-300 transition-colors"
+                >
+                  <CheckIcon />
+                  <span>Mark fixed</span>
+                </button>
+              )}
+            </div>
+            {/* Pipeline progress bar */}
+            <PipelineSteps status={report.status} />
+            <div className="flex justify-between mt-1">
+              <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Open</span>
+              <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Verified</span>
+            </div>
           </div>
 
-          {/* Title + meta */}
+          {/* Title */}
           <div>
-            <h1 className="text-2xl font-bold text-white leading-tight mb-2">
-              {report.title}
-            </h1>
+            <h1 className="text-2xl font-bold text-white leading-tight mb-2">{report.title}</h1>
             <div className="flex items-center gap-2 text-[13px]">
               {report.neighborhood && (
                 <span className="text-[var(--fc-info)] font-medium">{report.neighborhood}</span>
@@ -288,12 +406,56 @@ export default function ExposeClient() {
             </div>
           </div>
 
-          {/* Description */}
           {report.description && (
-            <p className="text-[14px] text-white/75 leading-relaxed">
-              {report.description}
-            </p>
+            <p className="text-[14px] text-white/75 leading-relaxed">{report.description}</p>
           )}
+
+          {/* Contractor info card */}
+          {report.contractor_name && (
+            <div className="glass-card p-4 space-y-2">
+              <h3 className="text-[12px] text-[var(--fc-muted)] uppercase tracking-wider font-semibold">Contractor</h3>
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] text-white font-medium">{report.contractor_name}</span>
+                <span className={`text-[14px] font-bold ${
+                  getContractorScore(report.contractor_name) >= 80 ? "text-green-400" :
+                  getContractorScore(report.contractor_name) >= 65 ? "text-amber-400" : "text-red-400"
+                }`}>
+                  {getContractorScore(report.contractor_name)}% on-time
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Verify vote — only for resolved, not yet verified */}
+          {isResolved && !isVerified && (
+            <VerifyVote
+              report={report}
+              onVerified={() => {
+                showToast("Vote recorded. Thanks for verifying.");
+              }}
+            />
+          )}
+
+          {/* Verified badge */}
+          {isVerified && (
+            <div className="glass-card p-4 border border-emerald-500/20 bg-emerald-500/5">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🏆</span>
+                <div>
+                  <p className="text-[13px] text-emerald-300 font-semibold">Community Verified</p>
+                  <p className="text-[11px] text-[var(--fc-muted)]">
+                    Multiple people confirmed this fix. This is now part of the permanent accountability record.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Pipeline timeline */}
+          <div className="glass-card p-4">
+            <h3 className="text-[12px] text-[var(--fc-muted)] uppercase tracking-wider font-semibold mb-4">Timeline</h3>
+            <PipelineTimeline report={report} />
+          </div>
 
           {/* Emoji reactions */}
           <div className="flex items-center gap-2">
@@ -325,9 +487,7 @@ export default function ExposeClient() {
                 : "bg-white/5 text-white hover:bg-white/10 border border-white/[0.06]"
             }`}
           >
-            <div className={alreadyWatching ? "animate-heart-pop" : ""}>
-              <EyeIcon active={alreadyWatching} />
-            </div>
+            <EyeIcon active={alreadyWatching} />
             <span>{alreadyWatching ? "Watching" : "Watch this exposé"}</span>
             <span className="text-[var(--fc-muted)] text-[12px]">· {report.supporters_count}</span>
           </button>
@@ -354,7 +514,7 @@ export default function ExposeClient() {
             </div>
           </div>
 
-          {/* Who's Responsible — agency badge */}
+          {/* Who's Responsible */}
           {hasLocation && (
             <div className="glass-card p-4 space-y-3">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
@@ -386,17 +546,13 @@ export default function ExposeClient() {
             </div>
           )}
 
-          {/* Comments section — mock */}
+          {/* Comments */}
           <div className="space-y-3">
-            <h3 className="text-[13px] font-semibold text-white/60 uppercase tracking-wider">
-              Comments
-            </h3>
+            <h3 className="text-[13px] font-semibold text-white/60 uppercase tracking-wider">Comments</h3>
             <div className="space-y-3">
               {MOCK_COMMENTS.map((c, i) => (
                 <div key={i} className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center shrink-0 text-[14px]">
-                    {c.avatar}
-                  </div>
+                  <div className="w-8 h-8 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center shrink-0 text-[14px]">{c.avatar}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-[12px] font-semibold text-white">{c.user}</span>
@@ -407,12 +563,8 @@ export default function ExposeClient() {
                 </div>
               ))}
             </div>
-
-            {/* Comment input bar */}
             <div className="flex items-center gap-2 pt-2">
-              <div className="w-8 h-8 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center shrink-0 text-[12px]">
-                😺
-              </div>
+              <div className="w-8 h-8 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center shrink-0 text-[12px]">😺</div>
               <div className="flex-1 h-9 rounded-full bg-[var(--fc-surface-2)] border border-white/[0.06] flex items-center px-3">
                 <span className="text-[12px] text-[var(--fc-muted)]">Add a comment...</span>
               </div>
@@ -433,35 +585,12 @@ export default function ExposeClient() {
             >
               Share this exposé
             </button>
-
             <div className="flex items-center justify-center gap-4 text-[12px]">
-              <a
-                href={`https://wa.me/?text=${encodedText}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[var(--fc-muted)] hover:text-white transition-colors"
-              >
-                WhatsApp
-              </a>
+              <a href={`https://wa.me/?text=${encodedText}`} target="_blank" rel="noopener noreferrer" className="text-[var(--fc-muted)] hover:text-white transition-colors">WhatsApp</a>
               <span className="text-white/10">|</span>
-              <a
-                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}&hashtags=FatCatsNYC`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[var(--fc-muted)] hover:text-white transition-colors"
-              >
-                Twitter/X
-              </a>
+              <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}&hashtags=FatCatsNYC`} target="_blank" rel="noopener noreferrer" className="text-[var(--fc-muted)] hover:text-white transition-colors">Twitter/X</a>
               <span className="text-white/10">|</span>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(shareUrl);
-                  showToast("Link copied");
-                }}
-                className="text-[var(--fc-muted)] hover:text-white transition-colors"
-              >
-                Copy link
-              </button>
+              <button onClick={() => { navigator.clipboard.writeText(shareUrl); showToast("Link copied"); }} className="text-[var(--fc-muted)] hover:text-white transition-colors">Copy link</button>
             </div>
           </div>
 
@@ -470,7 +599,6 @@ export default function ExposeClient() {
           </p>
         </div>
 
-        {/* Toast */}
         {toast && (
           <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[var(--fc-surface)]/90 backdrop-blur-xl border border-white/10 text-white text-sm px-5 py-2.5 rounded-xl animate-slide-up z-[60] shadow-xl">
             {toast}

@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Report } from "@/lib/types";
+import { getPipelineIndex } from "@/lib/types";
 import StatusPill from "./StatusPill";
+import { PipelineSteps } from "./StatusPill";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -23,6 +25,16 @@ function timeAgo(dateStr: string): string {
 
 function getStaticMapUrl(lat: number, lng: number, w = 400, h = 200): string {
   return `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/pin-s+E8652B(${lng},${lat})/${lng},${lat},14,0/${w}x${h}@2x?access_token=${MAPBOX_TOKEN}`;
+}
+
+// Mock contractor scores (in a real app this comes from DB)
+function getContractorScore(name: string): number {
+  // Deterministic mock score based on name hash
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) & 0x7fffffff;
+  }
+  return 55 + (hash % 40); // 55-94%
 }
 
 const EMOJI_REACTIONS = [
@@ -60,6 +72,22 @@ function ShareIcon() {
   );
 }
 
+function ContractorBadge({ name }: { name: string }) {
+  const score = getContractorScore(name);
+  const scoreColor = score >= 80 ? "text-green-400" : score >= 65 ? "text-amber-400" : "text-red-400";
+  
+  return (
+    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/[0.03] rounded-lg border border-white/[0.06]">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+      </svg>
+      <span className="text-[10px] text-[var(--fc-muted)] truncate max-w-[120px]">{name}</span>
+      <span className={`text-[10px] font-bold ${scoreColor} ml-auto`}>{score}%</span>
+    </div>
+  );
+}
+
 export default function ReportCard({ report }: { report: Report }) {
   const [watched, setWatched] = useState(false);
   const [watchCount, setWatchCount] = useState(report.supporters_count);
@@ -77,6 +105,10 @@ export default function ReportCard({ report }: { report: Report }) {
     : hasLocation
     ? getStaticMapUrl(report.lat!, report.lng!)
     : null;
+
+  const pipelineIdx = getPipelineIndex(report.status);
+  
+  const isVerified = pipelineIdx >= 4;
 
   const handleWatch = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -129,12 +161,29 @@ export default function ReportCard({ report }: { report: Report }) {
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-[var(--fc-surface)]/80 via-transparent to-transparent" />
           <div className="absolute bottom-3 left-3">
-            <StatusPill status={report.status} source={report.source} />
+            <StatusPill status={report.status} />
+          </div>
+          {isVerified && (
+            <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/20 border border-emerald-400/30">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span className="text-[9px] font-bold text-emerald-300">COMMUNITY VERIFIED</span>
+            </div>
+          )}
+        </div>
+
+        {/* Pipeline progress bar */}
+        <div className="px-3.5 pt-2.5">
+          <PipelineSteps status={report.status} />
+          <div className="flex justify-between mt-1 mb-0.5">
+            <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Open</span>
+            <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Verified</span>
           </div>
         </div>
 
         {/* Content */}
-        <div className="px-3.5 pt-3 pb-2">
+        <div className="px-3.5 pt-1 pb-2">
           <h3 className="text-[14px] font-semibold text-white leading-tight line-clamp-2">
             {report.title}
           </h3>
@@ -148,6 +197,13 @@ export default function ReportCard({ report }: { report: Report }) {
             <span>{report.source === "citizen" ? "Citizen" : "311"}</span>
           </div>
         </div>
+
+        {/* Contractor info (if assigned) */}
+        {report.contractor_name && (
+          <div className="px-3.5 pb-2">
+            <ContractorBadge name={report.contractor_name} />
+          </div>
+        )}
 
         {/* Emoji reaction bar */}
         <div className="px-3.5 py-2 flex items-center gap-1.5">
