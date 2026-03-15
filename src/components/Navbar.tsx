@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
+import { registerServiceWorker, requestPushPermission } from "@/lib/notifications";
 
-function BellIcon() {
+function BellIcon({ enabled }: { enabled: boolean }) {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill={enabled ? "#E8652B" : "none"} stroke={enabled ? "#E8652B" : "#8B95A8"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
     </svg>
@@ -17,6 +18,8 @@ function BellIcon() {
 export default function Navbar() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
+  const [notifEnabled, setNotifEnabled] = useState(false);
+  const [showToast, setShowToast] = useState<string | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -24,34 +27,72 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Register SW on mount
+  useEffect(() => {
+    registerServiceWorker();
+    if ("Notification" in window && Notification.permission === "granted") {
+      setNotifEnabled(true);
+    }
+  }, []);
+
+  const handleBell = useCallback(async () => {
+    if (notifEnabled) {
+      setShowToast("Notifications already enabled");
+      setTimeout(() => setShowToast(null), 2000);
+      return;
+    }
+    const granted = await requestPushPermission();
+    if (granted) {
+      setNotifEnabled(true);
+      setShowToast("Notifications enabled");
+    } else {
+      setShowToast("Notifications blocked — check browser settings");
+    }
+    setTimeout(() => setShowToast(null), 2500);
+  }, [notifEnabled]);
+
   if (pathname === "/") return null;
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 h-[var(--top-bar-height)] transition-all duration-200 ${
-        scrolled
-          ? "bg-[var(--fc-bg)]/90 backdrop-blur-xl border-b border-white/[0.06]"
-          : "bg-transparent"
-      }`}
-    >
-      <nav className="max-w-lg mx-auto px-4 h-full flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 group">
-          <Image
-            src="/assets/logo-64.png"
-            alt="FatCats"
-            width={28}
-            height={28}
-            className="group-hover:scale-105 transition-transform"
-          />
-          <span className="text-white font-bold text-[15px] tracking-wide">
-            FatCats
-          </span>
-        </Link>
+    <>
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 h-[var(--top-bar-height)] transition-all duration-200 ${
+          scrolled
+            ? "bg-[var(--fc-bg)]/90 backdrop-blur-xl border-b border-white/[0.06]"
+            : "bg-transparent"
+        }`}
+      >
+        <nav className="max-w-lg mx-auto px-4 h-full flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 group">
+            <Image
+              src="/assets/logo-64.png"
+              alt="FatCats"
+              width={28}
+              height={28}
+              className="group-hover:scale-105 transition-transform"
+            />
+            <span className="text-white font-bold text-[15px] tracking-wide">
+              FatCats
+            </span>
+          </Link>
 
-        <button className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white/5 transition-colors active:scale-90">
-          <BellIcon />
-        </button>
-      </nav>
-    </header>
+          <button
+            onClick={handleBell}
+            className={`w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white/5 transition-colors active:scale-90 relative ${notifEnabled ? "bg-[var(--fc-orange)]/10" : ""}`}
+          >
+            <BellIcon enabled={notifEnabled} />
+            {notifEnabled && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--fc-orange)]" />
+            )}
+          </button>
+        </nav>
+      </header>
+
+      {showToast && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 bg-[var(--fc-surface)]/90 backdrop-blur-xl border border-white/10 text-white text-sm px-5 py-2.5 rounded-xl animate-slide-up z-[60] shadow-xl">
+          {showToast}
+        </div>
+      )}
+    </>
   );
 }

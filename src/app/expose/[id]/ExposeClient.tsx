@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import StatusPill from "@/components/StatusPill";
 import { PipelineSteps } from "@/components/StatusPill";
 import { getReportById, addSupport, hasSupported, markAsFixed } from "@/lib/reports";
 import { getDeviceHash } from "@/lib/device";
-import { getPipelineIndex, getCategoryAgency } from "@/lib/types";
+import { getPipelineIndex, getCategoryAgency, getAgencyHandle, FLAVOR_REACTIONS } from "@/lib/types";
 import type { Report } from "@/lib/types";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -30,20 +30,32 @@ function getStaticMapUrl(lat: number, lng: number): string {
   return `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/pin-l+E8652B(${lng},${lat})/${lng},${lat},15,0/600x300@2x?access_token=${MAPBOX_TOKEN}`;
 }
 
-// Mock contractor score
 function getContractorScore(name: string): number {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0x7fffffff;
   return 55 + (hash % 40);
 }
 
-const EMOJI_REACTIONS = [
-  { emoji: "🔥", label: "fire" },
-  { emoji: "😤", label: "angry" },
-  { emoji: "💀", label: "dead" },
-  { emoji: "💪", label: "strong" },
-  { emoji: "👀", label: "eyes" },
-];
+// Cat paw SVG
+function PawIcon({ size = 20, color = "currentColor" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="12" cy="17" rx="5" ry="4" />
+      <circle cx="6.5" cy="10" r="2.5" />
+      <circle cx="17.5" cy="10" r="2.5" />
+      <circle cx="9" cy="6" r="2" />
+      <circle cx="15" cy="6" r="2" />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+    </svg>
+  );
+}
 
 const MOCK_COMMENTS = [
   { user: "watchdog_bk", avatar: "🐱", text: "Saw this on my way to work. Insane that it's been like this for weeks.", time: "2h ago" },
@@ -69,15 +81,6 @@ function ShareTopIcon() {
   );
 }
 
-function EyeIcon({ active }: { active?: boolean }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? "#E8652B" : "none"} stroke={active ? "#E8652B" : "#8B95A8"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
 function CheckIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -96,7 +99,7 @@ function ExternalLinkIcon() {
   );
 }
 
-// Timeline component for the pipeline
+// Pipeline timeline
 function PipelineTimeline({ report }: { report: Report }) {
   const currentIdx = getPipelineIndex(report.status);
   const createdDate = new Date(report.created_at);
@@ -115,36 +118,22 @@ function PipelineTimeline({ report }: { report: Report }) {
         const isCompleted = i <= currentIdx;
         const isCurrent = i === currentIdx;
         const isLast = i === stages.length - 1;
-
         return (
           <div key={stage.label} className="flex gap-3">
-            {/* Vertical line + dot */}
             <div className="flex flex-col items-center">
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-[12px] shrink-0 ${
-                  isCompleted
-                    ? isCurrent
-                      ? "bg-[var(--fc-orange)] ring-2 ring-[var(--fc-orange)]/30"
-                      : "bg-white/10"
-                    : "bg-white/[0.04] border border-white/[0.08]"
-                }`}
-              >
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[12px] shrink-0 ${
+                isCompleted
+                  ? isCurrent ? "bg-[var(--fc-orange)] ring-2 ring-[var(--fc-orange)]/30" : "bg-white/10"
+                  : "bg-white/[0.04] border border-white/[0.08]"
+              }`}>
                 {isCompleted ? stage.icon : <span className="text-[10px] text-white/20">{i + 1}</span>}
               </div>
               {!isLast && (
-                <div
-                  className={`w-[2px] flex-1 min-h-[28px] ${
-                    i < currentIdx ? "bg-[var(--fc-orange)]/40" : "bg-white/[0.06]"
-                  }`}
-                />
+                <div className={`w-[2px] flex-1 min-h-[28px] ${i < currentIdx ? "bg-[var(--fc-orange)]/40" : "bg-white/[0.06]"}`} />
               )}
             </div>
-
-            {/* Content */}
             <div className={`pb-4 ${!isCompleted ? "opacity-30" : ""}`}>
-              <p className={`text-[13px] font-semibold ${isCurrent ? "text-[var(--fc-orange)]" : "text-white"}`}>
-                {stage.label}
-              </p>
+              <p className={`text-[13px] font-semibold ${isCurrent ? "text-[var(--fc-orange)]" : "text-white"}`}>{stage.label}</p>
               <p className="text-[11px] text-[var(--fc-muted)] mt-0.5">{stage.detail}</p>
               {stage.date && (
                 <p className="text-[10px] text-[var(--fc-muted)] opacity-60 mt-0.5">
@@ -168,9 +157,7 @@ function VerifyVote({ onVerified }: { report: Report; onVerified: () => void }) 
   const handleVote = (vote: "yes" | "no") => {
     if (voted) return;
     setVoted(vote);
-    if (vote === "yes") {
-      onVerified();
-    }
+    if (vote === "yes") onVerified();
   };
 
   const totalVotes = yesCount + noCount + (voted ? 1 : 0);
@@ -185,35 +172,22 @@ function VerifyVote({ onVerified }: { report: Report; onVerified: () => void }) 
       <p className="text-[12px] text-[var(--fc-muted)]">
         This issue was marked resolved. Help verify — your vote builds the accountability record.
       </p>
-
       {!voted ? (
         <div className="flex gap-2">
-          <button
-            onClick={() => handleVote("yes")}
-            className="flex-1 h-11 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-[13px] font-semibold hover:bg-green-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-          >
+          <button onClick={() => handleVote("yes")} className="flex-1 h-11 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-[13px] font-semibold hover:bg-green-500/20 transition-all active:scale-95 flex items-center justify-center gap-2">
             <span>👍</span> Yes, it&apos;s fixed
           </button>
-          <button
-            onClick={() => handleVote("no")}
-            className="flex-1 h-11 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[13px] font-semibold hover:bg-red-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-          >
+          <button onClick={() => handleVote("no")} className="flex-1 h-11 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[13px] font-semibold hover:bg-red-500/20 transition-all active:scale-95 flex items-center justify-center gap-2">
             <span>👎</span> Nope, still broken
           </button>
         </div>
       ) : (
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className={voted === "yes" ? "text-green-400" : "text-red-400"}>
-              {voted === "yes" ? "✅ You confirmed the fix" : "❌ You flagged this as unresolved"}
-            </span>
-          </div>
-          {/* Vote bar */}
+          <span className={voted === "yes" ? "text-green-400 text-[13px]" : "text-red-400 text-[13px]"}>
+            {voted === "yes" ? "✅ You confirmed the fix" : "❌ You flagged this as unresolved"}
+          </span>
           <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
-            <div
-              className="h-full bg-green-400 rounded-full transition-all duration-500"
-              style={{ width: `${yesPercent}%` }}
-            />
+            <div className="h-full bg-green-400 rounded-full transition-all duration-500" style={{ width: `${yesPercent}%` }} />
           </div>
           <div className="flex justify-between text-[10px] text-[var(--fc-muted)]">
             <span>{yesPercent}% say fixed</span>
@@ -225,6 +199,36 @@ function VerifyVote({ onVerified }: { report: Report; onVerified: () => void }) 
   );
 }
 
+// Flavor reaction popover
+function FlavorPopover({
+  visible,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean;
+  onSelect: (label: string) => void;
+  onClose: () => void;
+}) {
+  if (!visible) return null;
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div className="absolute bottom-full left-0 mb-2 flex items-center gap-1 px-2 py-1.5 rounded-2xl bg-[var(--fc-surface-2)] border border-white/[0.1] shadow-xl shadow-black/40 z-50 animate-scale-in">
+        {FLAVOR_REACTIONS.map((r) => (
+          <button
+            key={r.label}
+            onClick={() => onSelect(r.label)}
+            className="flex flex-col items-center px-2.5 py-1 rounded-xl hover:bg-white/[0.08] transition-all active:scale-110 group"
+          >
+            <span className="text-[22px] group-hover:scale-125 transition-transform">{r.emoji}</span>
+            <span className="text-[8px] text-[var(--fc-muted)] mt-0.5">{r.label}</span>
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 export default function ExposeClient() {
   const params = useParams();
   const router = useRouter();
@@ -232,72 +236,103 @@ export default function ExposeClient() {
 
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
-  const [watching, setWatching] = useState(false);
-  const [alreadyWatching, setAlreadyWatching] = useState(false);
   const [isAuthor, setIsAuthor] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [reactions, setReactions] = useState<Record<string, number>>(() => {
-    const init: Record<string, number> = {};
-    EMOJI_REACTIONS.forEach((r) => { init[r.label] = 0; });
-    return init;
-  });
-  const [reacted, setReacted] = useState<Record<string, boolean>>({});
+
+  // Paw stamp state
+  const [stamped, setStamped] = useState(false);
+  const [stampCount, setStampCount] = useState(0);
+  const [showFlavors, setShowFlavors] = useState(false);
+  const [selectedFlavor, setSelectedFlavor] = useState<string | null>(null);
+  const [stampAnim, setStampAnim] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
 
   useEffect(() => {
     async function load() {
       const data = await getReportById(id);
       if (data) {
         setReport(data);
+        setStampCount(data.supporters_count);
         const dh = getDeviceHash();
         setIsAuthor(data.author_device_hash === dh);
         const supported = await hasSupported(id, dh);
-        setAlreadyWatching(supported);
+        if (supported) setStamped(true);
       }
       setLoading(false);
     }
     load();
   }, [id]);
 
-  const handleWatch = async () => {
-    if (alreadyWatching || !report) return;
-    setWatching(true);
+  // Paw stamp handlers
+  const handleStamp = useCallback(async () => {
+    if (didLongPress.current) { didLongPress.current = false; return; }
+    if (stamped || !report) return;
+    setStamped(true);
+    setStampCount((c) => c + 1);
+    setStampAnim(true);
+    setTimeout(() => setStampAnim(false), 600);
     const dh = getDeviceHash();
-    const ok = await addSupport(report.id, dh);
-    if (ok) {
-      setAlreadyWatching(true);
-      setReport({ ...report, supporters_count: report.supporters_count + 1 });
+    await addSupport(report.id, dh);
+  }, [stamped, report]);
+
+  const handlePressStart = useCallback(() => {
+    didLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      didLongPress.current = true;
+      setShowFlavors(true);
+    }, 500);
+  }, []);
+
+  const handlePressEnd = useCallback(() => {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+  }, []);
+
+  const handleFlavorSelect = useCallback(async (label: string) => {
+    setSelectedFlavor(label);
+    setShowFlavors(false);
+    if (!stamped && report) {
+      setStamped(true);
+      setStampCount((c) => c + 1);
+      setStampAnim(true);
+      setTimeout(() => setStampAnim(false), 600);
+      const dh = getDeviceHash();
+      await addSupport(report.id, dh);
     }
-    setWatching(false);
-  };
+  }, [stamped, report]);
 
   const handleMarkFixed = async () => {
     if (!report) return;
     const ok = await markAsFixed(report.id);
     if (ok) {
       setReport({ ...report, status: "fixed" });
-      showToast("Marked as fixed");
+      showToastMsg("Marked as fixed");
     }
-  };
-
-  const handleReaction = (label: string) => {
-    if (reacted[label]) return;
-    setReactions((prev) => ({ ...prev, [label]: prev[label] + 1 }));
-    setReacted((prev) => ({ ...prev, [label]: true }));
   };
 
   const handleShare = async () => {
     if (!report) return;
     const url = window.location.href;
-    const text = `🚨 ${report.title} — ${report.neighborhood || "NYC"}. See the exposé on FatCats: ${url} #FatCatsNYC #PointExposeFix`;
     if (navigator.share) {
-      try { await navigator.share({ title: "Exposé on FatCats", text, url }); } catch {}
+      try { await navigator.share({ title: report.title, text: `${report.title} — ${report.neighborhood || "NYC"}`, url }); } catch {}
     } else {
       await navigator.clipboard.writeText(url);
-      showToast("Link copied");
+      showToastMsg("Link copied");
     }
   };
 
-  const showToast = (msg: string) => {
+  // Pre-filled tweet with agency + council tags
+  const handleTweet = useCallback(() => {
+    if (!report) return;
+    const url = window.location.href;
+    const agencyHandle = getAgencyHandle(report.category);
+    const affected = stampCount > 0 ? `${stampCount} people affected. ` : "";
+    const daysOpen = Math.max(1, Math.floor((Date.now() - new Date(report.created_at).getTime()) / 86400000));
+    const text = `🚨 ${report.title} — ${report.neighborhood || "NYC"}. Open ${daysOpen} days. ${affected}${agencyHandle} what's the plan?\n\n${url}\n#FatCatsNYC #PointExposeFix`;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+  }, [report, stampCount]);
+
+  const showToastMsg = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
   };
@@ -324,19 +359,12 @@ export default function ExposeClient() {
   }
 
   const hasLocation = report.lat != null && report.lng != null;
-  const heroSrc = report.photo_url
-    ? report.photo_url
-    : hasLocation
-    ? getStaticMapUrl(report.lat!, report.lng!)
-    : null;
-
+  const heroSrc = report.photo_url ? report.photo_url : hasLocation ? getStaticMapUrl(report.lat!, report.lng!) : null;
   const pipelineIdx = getPipelineIndex(report.status);
   const isResolved = pipelineIdx >= 3;
   const isVerified = pipelineIdx >= 4;
-
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
-  const shareText = `🚨 ${report.title} — ${report.neighborhood || "NYC"}. See the exposé on FatCats:`;
-  const encodedText = encodeURIComponent(`${shareText} ${shareUrl} #FatCatsNYC`);
+  const flavorEmoji = selectedFlavor ? FLAVOR_REACTIONS.find((r) => r.label === selectedFlavor)?.emoji : null;
 
   return (
     <AppShell>
@@ -354,22 +382,16 @@ export default function ExposeClient() {
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-[var(--fc-bg)] via-transparent to-transparent" />
-          <button
-            onClick={() => router.back()}
-            className="absolute top-4 left-4 w-10 h-10 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center active:scale-90 transition-transform"
-          >
+          <button onClick={() => router.back()} className="absolute top-4 left-4 w-10 h-10 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center active:scale-90 transition-transform">
             <BackIcon />
           </button>
-          <button
-            onClick={handleShare}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-[var(--fc-orange)] flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-[var(--fc-orange)]/30"
-          >
+          <button onClick={handleShare} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-[var(--fc-orange)] flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-[var(--fc-orange)]/30">
             <ShareTopIcon />
           </button>
         </div>
 
         <div className="px-4 py-5 space-y-5">
-          {/* Status + pipeline bar */}
+          {/* Status + pipeline */}
           <div>
             <div className="flex items-center gap-3 mb-3">
               <StatusPill status={report.status} />
@@ -377,16 +399,12 @@ export default function ExposeClient() {
                 {report.source === "citizen" ? "Citizen exposé" : "City data"}
               </span>
               {isAuthor && report.status !== "fixed" && report.status !== "verified" && (
-                <button
-                  onClick={handleMarkFixed}
-                  className="ml-auto flex items-center gap-1 text-[11px] text-green-400 hover:text-green-300 transition-colors"
-                >
+                <button onClick={handleMarkFixed} className="ml-auto flex items-center gap-1 text-[11px] text-green-400 hover:text-green-300 transition-colors">
                   <CheckIcon />
                   <span>Mark fixed</span>
                 </button>
               )}
             </div>
-            {/* Pipeline progress bar */}
             <PipelineSteps status={report.status} />
             <div className="flex justify-between mt-1">
               <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Open</span>
@@ -398,17 +416,49 @@ export default function ExposeClient() {
           <div>
             <h1 className="text-2xl font-bold text-white leading-tight mb-2">{report.title}</h1>
             <div className="flex items-center gap-2 text-[13px]">
-              {report.neighborhood && (
-                <span className="text-[var(--fc-info)] font-medium">{report.neighborhood}</span>
-              )}
+              {report.neighborhood && <span className="text-[var(--fc-info)] font-medium">{report.neighborhood}</span>}
               <span className="text-[var(--fc-muted)] opacity-40">·</span>
               <span className="text-[var(--fc-muted)]">{timeAgo(report.created_at)}</span>
             </div>
           </div>
 
-          {report.description && (
-            <p className="text-[14px] text-white/75 leading-relaxed">{report.description}</p>
-          )}
+          {report.description && <p className="text-[14px] text-white/75 leading-relaxed">{report.description}</p>}
+
+          {/* Paw Stamp + Tweet CTA row */}
+          <div className="flex items-center gap-3">
+            {/* Paw stamp */}
+            <div className="relative">
+              <button
+                onMouseDown={handlePressStart}
+                onMouseUp={handlePressEnd}
+                onMouseLeave={handlePressEnd}
+                onTouchStart={handlePressStart}
+                onTouchEnd={handlePressEnd}
+                onClick={handleStamp}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[14px] font-bold transition-all active:scale-95 select-none ${
+                  stamped
+                    ? "bg-[var(--fc-orange)]/15 text-[var(--fc-orange)] border-2 border-[var(--fc-orange)]/30"
+                    : "bg-white/[0.06] text-white border-2 border-white/[0.08] hover:bg-white/[0.1]"
+                }`}
+              >
+                <span className={`text-[18px] transition-transform ${stampAnim ? "animate-heart-pop" : ""}`}>
+                  {flavorEmoji || <PawIcon size={20} color={stamped ? "#E8652B" : "#ffffff"} />}
+                </span>
+                <span>{stampCount}</span>
+                <span className="text-[11px] font-normal text-[var(--fc-muted)]">affected</span>
+              </button>
+              <FlavorPopover visible={showFlavors} onSelect={handleFlavorSelect} onClose={() => setShowFlavors(false)} />
+            </div>
+
+            {/* Tweet to officials */}
+            <button
+              onClick={handleTweet}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[14px] font-bold bg-white/[0.06] text-white border-2 border-white/[0.08] hover:bg-white/[0.1] transition-all active:scale-95"
+            >
+              <XIcon />
+              <span>Tweet Officials</span>
+            </button>
+          </div>
 
           {/* Contractor info card */}
           {report.contractor_name && (
@@ -426,14 +476,9 @@ export default function ExposeClient() {
             </div>
           )}
 
-          {/* Verify vote — only for resolved, not yet verified */}
+          {/* Verify vote */}
           {isResolved && !isVerified && (
-            <VerifyVote
-              report={report}
-              onVerified={() => {
-                showToast("Vote recorded. Thanks for verifying.");
-              }}
-            />
+            <VerifyVote report={report} onVerified={() => showToastMsg("Vote recorded. Thanks for verifying.")} />
           )}
 
           {/* Verified badge */}
@@ -443,9 +488,7 @@ export default function ExposeClient() {
                 <span className="text-lg">🏆</span>
                 <div>
                   <p className="text-[13px] text-emerald-300 font-semibold">Community Verified</p>
-                  <p className="text-[11px] text-[var(--fc-muted)]">
-                    Multiple people confirmed this fix. This is now part of the permanent accountability record.
-                  </p>
+                  <p className="text-[11px] text-[var(--fc-muted)]">Multiple people confirmed this fix. This is now part of the permanent accountability record.</p>
                 </div>
               </div>
             </div>
@@ -456,41 +499,6 @@ export default function ExposeClient() {
             <h3 className="text-[12px] text-[var(--fc-muted)] uppercase tracking-wider font-semibold mb-4">Timeline</h3>
             <PipelineTimeline report={report} />
           </div>
-
-          {/* Emoji reactions */}
-          <div className="flex items-center gap-2">
-            {EMOJI_REACTIONS.map((r) => (
-              <button
-                key={r.label}
-                onClick={() => handleReaction(r.label)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[14px] transition-all active:scale-90 ${
-                  reacted[r.label]
-                    ? "bg-[var(--fc-orange)]/15 border border-[var(--fc-orange)]/30"
-                    : "bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08]"
-                }`}
-              >
-                <span className={reacted[r.label] ? "animate-heart-pop" : ""}>{r.emoji}</span>
-                {reactions[r.label] > 0 && (
-                  <span className="text-[12px] text-white/60">{reactions[r.label]}</span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Watch button */}
-          <button
-            onClick={handleWatch}
-            disabled={watching}
-            className={`w-full flex items-center justify-center gap-2 h-12 rounded-xl text-[14px] font-semibold transition-all active:scale-[0.98] ${
-              alreadyWatching
-                ? "bg-[var(--fc-orange)]/10 text-[var(--fc-orange)] border border-[var(--fc-orange)]/20"
-                : "bg-white/5 text-white hover:bg-white/10 border border-white/[0.06]"
-            }`}
-          >
-            <EyeIcon active={alreadyWatching} />
-            <span>{alreadyWatching ? "Watching" : "Watch this exposé"}</span>
-            <span className="text-[var(--fc-muted)] text-[12px]">· {report.supporters_count}</span>
-          </button>
 
           {/* 2x2 Info grid */}
           <div className="grid grid-cols-2 gap-3">
@@ -509,8 +517,8 @@ export default function ExposeClient() {
               </div>
             )}
             <div className="glass-card p-3.5">
-              <span className="text-[11px] text-[var(--fc-muted)] block mb-1">Watchers</span>
-              <span className="text-[13px] text-white font-medium">{report.supporters_count}</span>
+              <span className="text-[11px] text-[var(--fc-muted)] block mb-1">People affected</span>
+              <span className="text-[13px] text-white font-medium">{stampCount}</span>
             </div>
           </div>
 
@@ -525,20 +533,13 @@ export default function ExposeClient() {
                 Who handles this
               </h3>
               {report.neighborhood && (
-                <p className="text-[13px] text-[var(--fc-muted)]">
-                  This is in <span className="text-white font-medium">{report.neighborhood}</span>
-                </p>
+                <p className="text-[13px] text-[var(--fc-muted)]">This is in <span className="text-white font-medium">{report.neighborhood}</span></p>
               )}
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--fc-info)]/10 border border-[var(--fc-info)]/20">
                 <span className="text-[12px] text-[var(--fc-info)] font-semibold">{getCategoryAgency(report.category)}</span>
               </div>
               <div>
-                <a
-                  href="https://council.nyc.gov/districts/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-[13px] text-[var(--fc-orange)] font-medium hover:underline"
-                >
+                <a href="https://council.nyc.gov/districts/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] text-[var(--fc-orange)] font-medium hover:underline">
                   Look up your council member
                   <ExternalLinkIcon />
                 </a>
@@ -568,29 +569,20 @@ export default function ExposeClient() {
               <div className="flex-1 h-9 rounded-full bg-[var(--fc-surface-2)] border border-white/[0.06] flex items-center px-3">
                 <span className="text-[12px] text-[var(--fc-muted)]">Add a comment...</span>
               </div>
-              <button className="w-9 h-9 rounded-full bg-[var(--fc-orange)] flex items-center justify-center shrink-0 opacity-50">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                </svg>
-              </button>
             </div>
           </div>
 
           {/* Share section */}
           <div className="space-y-3 pt-2">
-            <button
-              onClick={handleShare}
-              className="w-full h-12 rounded-xl bg-[var(--fc-orange)] hover:bg-[var(--fc-orange-hover)] text-white font-bold text-[15px] transition-colors active:scale-[0.98]"
-            >
+            <button onClick={handleShare} className="w-full h-12 rounded-xl bg-[var(--fc-orange)] hover:bg-[var(--fc-orange-hover)] text-white font-bold text-[15px] transition-colors active:scale-[0.98]">
               Share this exposé
             </button>
             <div className="flex items-center justify-center gap-4 text-[12px]">
-              <a href={`https://wa.me/?text=${encodedText}`} target="_blank" rel="noopener noreferrer" className="text-[var(--fc-muted)] hover:text-white transition-colors">WhatsApp</a>
+              <a href={`https://wa.me/?text=${encodeURIComponent(`🚨 ${report.title} — ${report.neighborhood || "NYC"}. ${shareUrl} #FatCatsNYC`)}`} target="_blank" rel="noopener noreferrer" className="text-[var(--fc-muted)] hover:text-white transition-colors">WhatsApp</a>
               <span className="text-white/10">|</span>
-              <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}&hashtags=FatCatsNYC`} target="_blank" rel="noopener noreferrer" className="text-[var(--fc-muted)] hover:text-white transition-colors">Twitter/X</a>
+              <button onClick={handleTweet} className="text-[var(--fc-muted)] hover:text-white transition-colors">Twitter/X</button>
               <span className="text-white/10">|</span>
-              <button onClick={() => { navigator.clipboard.writeText(shareUrl); showToast("Link copied"); }} className="text-[var(--fc-muted)] hover:text-white transition-colors">Copy link</button>
+              <button onClick={() => { navigator.clipboard.writeText(shareUrl); showToastMsg("Link copied"); }} className="text-[var(--fc-muted)] hover:text-white transition-colors">Copy link</button>
             </div>
           </div>
 

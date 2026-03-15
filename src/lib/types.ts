@@ -119,3 +119,30 @@ export function getCategoryAgency(category: string): string {
       return "311";
   }
 }
+
+// Agency Twitter handles for pre-filled tweets
+export function getAgencyHandle(category: string): string {
+  switch (category) {
+    case "pothole":
+    case "road_damage":
+    case "sidewalk":
+    case "street_light":
+    case "traffic_signal":
+      return "@NYC_DOT";
+    case "water":
+    case "sewer":
+      return "@NYCwater";
+    case "trash":
+      return "@NYCSanitation";
+    default:
+      return "@NYC311";
+  }
+}
+
+// Flavor reactions for long-press
+export const FLAVOR_REACTIONS = [
+  { emoji: "🔥", label: "Outrageous" },
+  { emoji: "💀", label: "Dangerous" },
+  { emoji: "😤", label: "Frustrated" },
+  { emoji: "👀", label: "Watching" },
+] as const;

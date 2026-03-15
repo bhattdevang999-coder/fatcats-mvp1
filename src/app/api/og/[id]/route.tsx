@@ -33,7 +33,7 @@ export async function GET(
 
   const { data: report } = await supabase
     .from("reports")
-    .select("title,status,category,neighborhood")
+    .select("title,status,category,neighborhood,supporters_count")
     .eq("id", params.id)
     .single();
 
@@ -41,6 +41,7 @@ export async function GET(
   const status = statusLabel(report?.status ?? "unresolved");
   const emoji = categoryEmoji(report?.category ?? "other");
   const neighborhood = report?.neighborhood ?? "New York City";
+  const affected = report?.supporters_count ?? 0;
 
   return new ImageResponse(
     (
@@ -55,6 +56,7 @@ export async function GET(
           background: "linear-gradient(135deg, #1B2A4A 0%, #0F172A 100%)",
           padding: "72px 80px",
           fontFamily: "sans-serif",
+          position: "relative",
         }}
       >
         {/* Top label */}
@@ -81,7 +83,7 @@ export async function GET(
             FATCATS
           </div>
           <div style={{ color: "#8B95A8", fontSize: 18 }}>
-            on FatCats
+            Point. Expose. Fix.
           </div>
         </div>
 
@@ -105,17 +107,38 @@ export async function GET(
           {title}
         </div>
 
-        {/* Status */}
+        {/* Status + affected */}
         <div
           style={{
-            color: "#E8652B",
-            fontSize: 28,
-            fontWeight: 700,
-            marginBottom: 16,
             display: "flex",
+            alignItems: "center",
+            gap: 24,
+            marginBottom: 16,
           }}
         >
-          {status}
+          <div
+            style={{
+              color: "#E8652B",
+              fontSize: 28,
+              fontWeight: 700,
+              display: "flex",
+            }}
+          >
+            {status}
+          </div>
+          {affected > 0 && (
+            <div
+              style={{
+                color: "#8B95A8",
+                fontSize: 22,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              🐾 {affected} affected
+            </div>
+          )}
         </div>
 
         {/* Neighborhood */}
@@ -144,6 +167,50 @@ export async function GET(
             display: "flex",
           }}
         />
+
+        {/* Watermark — bottom right */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 20,
+            right: 30,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <div
+            style={{
+              color: "rgba(255,255,255,0.25)",
+              fontSize: 14,
+              fontWeight: 700,
+              letterSpacing: 3,
+              textTransform: "uppercase",
+              display: "flex",
+            }}
+          >
+            fatcatsapp.com
+          </div>
+        </div>
+
+        {/* Diagonal watermark overlay */}
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%) rotate(-30deg)",
+            color: "rgba(232, 101, 43, 0.06)",
+            fontSize: 120,
+            fontWeight: 900,
+            letterSpacing: 20,
+            textTransform: "uppercase",
+            whiteSpace: "nowrap",
+            display: "flex",
+          }}
+        >
+          FATCATS
+        </div>
       </div>
     ),
     {
