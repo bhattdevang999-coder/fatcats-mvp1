@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import AppShell from "@/components/AppShell";
+import StatusPill from "@/components/StatusPill";
 import { listMapReports } from "@/lib/reports";
 import { getPipelineIndex } from "@/lib/types";
 import type { Report } from "@/lib/types";
@@ -22,28 +24,24 @@ const CATEGORY_FILTERS = [
 const STATUS_FILTERS = [
   { value: "all", label: "All" },
   { value: "unresolved", label: "Open" },
-  { value: "assigned", label: "Assigned" },
   { value: "in_progress", label: "In Progress" },
   { value: "resolved", label: "Resolved" },
-  { value: "verified", label: "Verified" },
 ];
 
 // Status to color mapping for map markers
 function getStatusColor(status: string): string {
   const idx = getPipelineIndex(status);
   switch (idx) {
-    case 0: return "#F59E0B"; // amber - open
-    case 1: return "#3B82F6"; // blue - assigned
-    case 2: return "#A855F7"; // purple - in progress
-    case 3: return "#22C55E"; // green - resolved
-    case 4: return "#34D399"; // emerald - verified
+    case 0: return "#F59E0B";
+    case 1: return "#3B82F6";
+    case 2: return "#A855F7";
+    case 3: return "#22C55E";
+    case 4: return "#34D399";
     default: return "#F59E0B";
   }
 }
 
-// Create cat-head SVG as data URL for use as Mapbox marker image
 function createCatMarkerSVG(color: string, size: number = 40): string {
-  // Minimal angular cat head silhouette matching the FatCats logo style
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 40 40">
     <defs>
       <filter id="s" x="-20%" y="-20%" width="140%" height="140%">
@@ -51,18 +49,20 @@ function createCatMarkerSVG(color: string, size: number = 40): string {
       </filter>
     </defs>
     <g filter="url(#s)">
-      <!-- Cat head shape: angular ears + round face -->
       <path d="M8 28 L6 10 L13 16 L20 8 L27 16 L34 10 L32 28 Q32 34 20 34 Q8 34 8 28Z" fill="${color}" stroke="#0F172A" stroke-width="1.5"/>
-      <!-- Eyes -->
       <ellipse cx="14" cy="22" rx="2.5" ry="2" fill="#0F172A"/>
       <ellipse cx="26" cy="22" rx="2.5" ry="2" fill="#0F172A"/>
-      <!-- Nose -->
       <polygon points="20,25 18.5,27 21.5,27" fill="#0F172A"/>
     </g>
   </svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
+function timeAgo(dateStr: string): string {
+  const days = Math.max(1, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000));
+  if (days < 30) return `${days}d ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+}
 
 export default function MapPage() {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -74,6 +74,9 @@ export default function MapPage() {
   const [reportCount, setReportCount] = useState(0);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const mapboxglRef = useRef<typeof import("mapbox-gl") | null>(null);
+
+  // Bottom sheet state
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
   // Load reports
   useEffect(() => {
@@ -103,7 +106,6 @@ export default function MapPage() {
       map.on("load", () => {
         setLoaded(true);
 
-        // Add GeoJSON source for 311 reports (will use clusters)
         map.addSource("reports-311", {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
@@ -112,7 +114,6 @@ export default function MapPage() {
           clusterRadius: 50,
         });
 
-        // Cluster circles for 311 data
         map.addLayer({
           id: "clusters-311",
           type: "circle",
@@ -120,11 +121,7 @@ export default function MapPage() {
           filter: ["has", "point_count"],
           paint: {
             "circle-color": "#A0734A",
-            "circle-radius": [
-              "step",
-              ["get", "point_count"],
-              16, 10, 22, 50, 28,
-            ],
+            "circle-radius": ["step", ["get", "point_count"], 16, 10, 22, 50, 28],
             "circle-opacity": 0.7,
           },
         });
@@ -142,7 +139,6 @@ export default function MapPage() {
           paint: { "text-color": "#ffffff" },
         });
 
-        // Individual 311 dots (small, muted)
         map.addLayer({
           id: "unclustered-311",
           type: "circle",
@@ -150,14 +146,8 @@ export default function MapPage() {
           filter: ["!", ["has", "point_count"]],
           paint: {
             "circle-color": [
-              "match",
-              ["get", "pipelineIdx"],
-              0, "#F59E0B",
-              1, "#3B82F6",
-              2, "#A855F7",
-              3, "#22C55E",
-              4, "#34D399",
-              "#A0734A",
+              "match", ["get", "pipelineIdx"],
+              0, "#F59E0B", 1, "#3B82F6", 2, "#A855F7", 3, "#22C55E", 4, "#34D399", "#A0734A",
             ],
             "circle-radius": 5,
             "circle-stroke-width": 1.5,
@@ -166,7 +156,6 @@ export default function MapPage() {
           },
         });
 
-        // Click handlers for 311 clusters
         map.on("click", "clusters-311", (e) => {
           const features = map.queryRenderedFeatures(e.point, { layers: ["clusters-311"] });
           if (!features.length) return;
@@ -181,28 +170,6 @@ export default function MapPage() {
           });
         });
 
-        // Click on individual 311 point
-        map.on("click", "unclustered-311", (e) => {
-          if (!e.features?.length) return;
-          const props = e.features[0].properties!;
-          const geom = e.features[0].geometry;
-          if (geom.type !== "Point") return;
-          const coords = geom.coordinates as [number, number];
-
-          new mapboxgl.default.Popup({ offset: 12, className: "fc-popup" })
-            .setLngLat(coords)
-            .setHTML(`
-              <div style="max-width:220px;">
-                <p style="font-weight:600;font-size:14px;margin:0 0 6px;color:#fff;">${props.title}</p>
-                <p style="font-size:11px;color:#8B95A8;margin:0 0 4px;">311 Data · ${props.statusLabel}</p>
-                ${props.contractor_name ? `<p style="font-size:10px;color:#8B95A8;margin:0 0 8px;">📋 ${props.contractor_name}</p>` : ""}
-                <a href="/expose/${props.id}" style="color:#E8652B;font-size:12px;font-weight:600;text-decoration:none;">View exposé →</a>
-              </div>
-            `)
-            .addTo(map);
-        });
-
-        // Cursors
         map.on("mouseenter", "clusters-311", () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", "clusters-311", () => { map.getCanvas().style.cursor = ""; });
         map.on("mouseenter", "unclustered-311", () => { map.getCanvas().style.cursor = "pointer"; });
@@ -225,15 +192,12 @@ export default function MapPage() {
     if (!mapRef.current || !loaded || !mapboxglRef.current) return;
     const mapboxgl = mapboxglRef.current;
 
-    // Clear old citizen markers
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
-    // Separate citizen vs 311
     const citizenReports = reports.filter((r) => r.source === "citizen" && r.lat && r.lng);
     const threeOneOneReports = reports.filter((r) => r.source === "311" && r.lat && r.lng);
 
-    // Add citizen reports as custom cat-head HTML markers
     citizenReports.forEach((r) => {
       const color = getStatusColor(r.status);
       const el = document.createElement("div");
@@ -250,32 +214,12 @@ export default function MapPage() {
       img.style.pointerEvents = "none";
       el.appendChild(img);
 
-      // Hover effect
       el.addEventListener("mouseenter", () => { el.style.transform = "scale(1.3)"; });
       el.addEventListener("mouseleave", () => { el.style.transform = "scale(1)"; });
 
-      // Click -> popup
+      // Click -> bottom sheet instead of popup
       el.addEventListener("click", () => {
-        const statusLabel = (() => {
-          const idx = getPipelineIndex(r.status);
-          return ["Open", "Assigned", "In Progress", "Resolved", "Verified"][idx];
-        })();
-
-        new mapboxgl.default.Popup({ offset: 20, className: "fc-popup" })
-          .setLngLat([r.lng!, r.lat!])
-          .setHTML(`
-            <div style="max-width:220px;">
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-                <span style="font-size:14px;">🐱</span>
-                <span style="font-size:10px;font-weight:600;color:${color};text-transform:uppercase;letter-spacing:0.5px;">${statusLabel}</span>
-              </div>
-              <p style="font-weight:600;font-size:14px;margin:0 0 6px;color:#fff;">${r.title}</p>
-              <p style="font-size:11px;color:#8B95A8;margin:0 0 4px;">Citizen watchdog · ${r.supporters_count} watching</p>
-              ${r.contractor_name ? `<p style="font-size:10px;color:#8B95A8;margin:0 0 8px;">📋 ${r.contractor_name}</p>` : ""}
-              <a href="/expose/${r.id}" style="color:#E8652B;font-size:12px;font-weight:600;text-decoration:none;">View exposé →</a>
-            </div>
-          `)
-          .addTo(mapRef.current!);
+        setSelectedReport(r);
       });
 
       const marker = new mapboxgl.default.Marker({ element: el })
@@ -285,15 +229,22 @@ export default function MapPage() {
       markersRef.current.push(marker);
     });
 
-    // Update 311 GeoJSON source
+    // 311 click → bottom sheet
+    const handle311Click = (e: mapboxgl.MapMouseEvent) => {
+      if (!e.features?.length) return;
+      const props = e.features[0].properties!;
+      const match = reports.find((r) => r.id === props.id);
+      if (match) setSelectedReport(match);
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mapRef.current.on("click", "unclustered-311", handle311Click as any);
+
     const source311 = mapRef.current.getSource("reports-311") as mapboxgl.GeoJSONSource | undefined;
     if (source311) {
       const features = threeOneOneReports.map((r) => ({
         type: "Feature" as const,
-        geometry: {
-          type: "Point" as const,
-          coordinates: [r.lng!, r.lat!],
-        },
+        geometry: { type: "Point" as const, coordinates: [r.lng!, r.lat!] },
         properties: {
           id: r.id,
           title: r.title,
@@ -309,6 +260,21 @@ export default function MapPage() {
       source311.setData({ type: "FeatureCollection", features });
     }
   }, [reports, loaded]);
+
+  // My Location handler
+  const handleMyLocation = () => {
+    if (!mapRef.current || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        mapRef.current?.flyTo({
+          center: [pos.coords.longitude, pos.coords.latitude],
+          zoom: 14,
+          duration: 1500,
+        });
+      },
+      () => {}
+    );
+  };
 
   return (
     <AppShell>
@@ -351,11 +317,26 @@ export default function MapPage() {
           </div>
         </div>
 
+        {/* My Location button */}
+        <button
+          onClick={handleMyLocation}
+          className="absolute bottom-20 right-3 z-10 w-10 h-10 rounded-xl bg-[var(--fc-deep)]/90 backdrop-blur-md border border-white/[0.08] flex items-center justify-center hover:bg-white/10 transition-colors active:scale-90"
+          title="My location"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E8652B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="4" />
+            <line x1="12" y1="2" x2="12" y2="6" />
+            <line x1="12" y1="18" x2="12" y2="22" />
+            <line x1="2" y1="12" x2="6" y2="12" />
+            <line x1="18" y1="12" x2="22" y2="12" />
+          </svg>
+        </button>
+
         {/* Legend */}
         <div className="absolute bottom-4 left-3 z-10 flex items-center gap-3 px-3 py-2 rounded-xl bg-[var(--fc-deep)]/90 backdrop-blur-md border border-white/[0.06]">
           <div className="flex items-center gap-1.5">
             <img src={createCatMarkerSVG("#E8652B", 20)} alt="" width="16" height="16" />
-            <span className="text-[10px] text-white/70 font-medium">Citizens</span>
+            <span className="text-[10px] text-white/70 font-medium">Residents</span>
           </div>
           <div className="w-px h-3 bg-white/10" />
           <div className="flex items-center gap-1.5">
@@ -371,6 +352,54 @@ export default function MapPage() {
           <div className="absolute inset-0 flex items-center justify-center bg-[var(--fc-deep)]">
             <p className="text-[var(--fc-muted)] text-sm">Mapbox token not configured.</p>
           </div>
+        )}
+
+        {/* Bottom sheet for selected report */}
+        {selectedReport && (
+          <>
+            <div className="fixed inset-0 z-20" onClick={() => setSelectedReport(null)} />
+            <div className="fixed bottom-[var(--bottom-bar-height)] left-0 right-0 z-30 animate-slide-up">
+              <div className="max-w-lg mx-auto mx-3 mb-3">
+                <div className="glass-card p-4 border border-white/10 shadow-2xl">
+                  <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-3" />
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-[var(--fc-surface-2)]">
+                      <img
+                        src={createCatMarkerSVG(getStatusColor(selectedReport.status), 40)}
+                        alt=""
+                        className="w-full h-full"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <StatusPill status={selectedReport.status} />
+                        <span className="text-[10px] text-[var(--fc-muted)]">
+                          {selectedReport.source === "citizen" ? "Resident" : "311"} · {timeAgo(selectedReport.created_at)}
+                        </span>
+                      </div>
+                      <h3 className="text-[14px] font-semibold text-white leading-tight line-clamp-2 mb-1">
+                        {selectedReport.title}
+                      </h3>
+                      {selectedReport.neighborhood && (
+                        <p className="text-[11px] text-[var(--fc-muted)] mb-2">{selectedReport.neighborhood}</p>
+                      )}
+                      <div className="flex items-center gap-3">
+                        <span className="text-[11px] text-[var(--fc-muted)]">
+                          🐾 {selectedReport.supporters_count} affected
+                        </span>
+                        <Link
+                          href={`/expose/${selectedReport.id}`}
+                          className="text-[12px] font-semibold text-[var(--fc-orange)] hover:underline ml-auto"
+                        >
+                          View exposé →
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </AppShell>

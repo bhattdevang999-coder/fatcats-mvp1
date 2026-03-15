@@ -23,6 +23,10 @@ function timeAgo(dateStr: string): string {
   return `${months}mo ago`;
 }
 
+function daysOpen(dateStr: string): number {
+  return Math.max(1, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000));
+}
+
 function getStaticMapUrl(lat: number, lng: number, w = 400, h = 200): string {
   return `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/pin-s+E8652B(${lng},${lat})/${lng},${lat},14,0/${w}x${h}@2x?access_token=${MAPBOX_TOKEN}`;
 }
@@ -48,21 +52,30 @@ function PawIcon({ size = 18, color = "currentColor" }: { size?: number; color?:
   );
 }
 
+// X/Twitter icon
+function XIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+    </svg>
+  );
+}
+
+// Reddit icon
+function RedditIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/>
+    </svg>
+  );
+}
+
 function ShareIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
       <polyline points="16 6 12 2 8 6" />
       <line x1="12" y1="2" x2="12" y2="15" />
-    </svg>
-  );
-}
-
-// X/Twitter icon
-function XIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
     </svg>
   );
 }
@@ -137,8 +150,9 @@ export default function ReportCard({ report }: { report: Report }) {
 
   const pipelineIdx = getPipelineIndex(report.status);
   const isVerified = pipelineIdx >= 4;
+  const days = daysOpen(report.created_at);
 
-  // Paw stamp tap
+  // FIX: Un-stamp toggle — allow removing stamp on second tap
   const handleStamp = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -146,7 +160,13 @@ export default function ReportCard({ report }: { report: Report }) {
       didLongPress.current = false;
       return;
     }
-    if (!stamped) {
+    if (stamped) {
+      // UNSTAMP
+      setStamped(false);
+      setStampCount((c) => Math.max(0, c - 1));
+      setSelectedFlavor(null);
+    } else {
+      // STAMP
       setStamped(true);
       setStampCount((c) => c + 1);
       setStampAnim(true);
@@ -183,21 +203,33 @@ export default function ReportCard({ report }: { report: Report }) {
     }
   }, [stamped]);
 
-  // Pre-filled tweet
-  const handleTweet = useCallback((e: React.MouseEvent) => {
+  // Post on X (pre-filled)
+  const handlePostX = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const url = `${window.location.origin}/expose/${report.id}`;
     const agencyHandle = getAgencyHandle(report.category);
     const affected = stampCount > 0 ? `${stampCount} people affected. ` : "";
-    const daysOpen = Math.max(1, Math.floor((Date.now() - new Date(report.created_at).getTime()) / 86400000));
-    const text = `🚨 ${report.title} — ${report.neighborhood || "NYC"}. Open ${daysOpen} days. ${affected}${agencyHandle} what's the plan?\n\n${url}\n#FatCatsNYC #PointExposeFix`;
+    const text = `🚨 ${report.title} — ${report.neighborhood || "NYC"}. Open ${days} days. ${affected}${agencyHandle} what's the plan?\n\n${url}\n#FatCatsNYC #PointExposeFix`;
     window.open(
       `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
       "_blank",
       "noopener,noreferrer"
     );
-  }, [report, stampCount]);
+  }, [report, stampCount, days]);
+
+  // Post on Reddit
+  const handlePostReddit = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = `${window.location.origin}/expose/${report.id}`;
+    const redditTitle = `${report.title} — ${report.neighborhood || "NYC"} (${days} days, ${stampCount} affected)`;
+    window.open(
+      `https://www.reddit.com/r/nyc/submit?type=link&url=${encodeURIComponent(url)}&title=${encodeURIComponent(redditTitle)}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }, [report, stampCount, days]);
 
   // Share
   const handleShare = useCallback((e: React.MouseEvent) => {
@@ -234,12 +266,18 @@ export default function ReportCard({ report }: { report: Report }) {
           <div className="absolute bottom-3 left-3">
             <StatusPill status={report.status} />
           </div>
+          {/* Urgency indicator — days open */}
+          {days >= 14 && pipelineIdx < 3 && (
+            <div className="absolute top-3 left-3 px-2 py-0.5 rounded-md bg-red-500/20 border border-red-500/30">
+              <span className="text-[9px] font-bold text-red-400">OPEN {days} DAYS</span>
+            </div>
+          )}
           {isVerified && (
             <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/20 border border-emerald-400/30">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              <span className="text-[9px] font-bold text-emerald-300">COMMUNITY VERIFIED</span>
+              <span className="text-[9px] font-bold text-emerald-300">VERIFIED</span>
             </div>
           )}
         </div>
@@ -265,7 +303,7 @@ export default function ReportCard({ report }: { report: Report }) {
             <span className="opacity-40">·</span>
             <span>{timeAgo(report.created_at)}</span>
             <span className="opacity-40">·</span>
-            <span>{report.source === "citizen" ? "Citizen" : "311"}</span>
+            <span>{report.source === "citizen" ? "Resident" : "311"}</span>
           </div>
         </div>
 
@@ -276,9 +314,9 @@ export default function ReportCard({ report }: { report: Report }) {
           </div>
         )}
 
-        {/* Action bar: Paw Stamp + Tweet + Share */}
+        {/* Action bar: Paw Stamp + X + Reddit + Share */}
         <div className="flex items-center gap-2 px-3.5 py-2.5 border-t border-white/[0.04]">
-          {/* Paw stamp — tap to stamp, long-press for flavor reactions */}
+          {/* Paw stamp — tap to stamp/unstamp, long-press for flavor reactions */}
           <div className="relative">
             <button
               onMouseDown={handlePressStart}
@@ -308,13 +346,22 @@ export default function ReportCard({ report }: { report: Report }) {
             />
           </div>
 
-          {/* Tweet to officials */}
+          {/* Post on X — icon only */}
           <button
-            onClick={handleTweet}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-semibold bg-white/[0.04] text-[var(--fc-muted)] border border-white/[0.06] hover:bg-white/[0.08] hover:text-white transition-all active:scale-95"
+            onClick={handlePostX}
+            className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/[0.04] text-white/60 border border-white/[0.06] hover:bg-white/[0.08] hover:text-white transition-all active:scale-95"
+            title="Post on X"
           >
             <XIcon />
-            <span>Tweet</span>
+          </button>
+
+          {/* Post on Reddit — icon only */}
+          <button
+            onClick={handlePostReddit}
+            className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/[0.04] text-[#FF4500]/70 border border-white/[0.06] hover:bg-white/[0.08] hover:text-[#FF4500] transition-all active:scale-95"
+            title="Post on Reddit"
+          >
+            <RedditIcon />
           </button>
 
           {/* Share */}

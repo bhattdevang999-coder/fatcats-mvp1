@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import StatusPill from "@/components/StatusPill";
 import { PipelineSteps } from "@/components/StatusPill";
+import ShareSheet from "@/components/ShareSheet";
 import { getReportById, addSupport, hasSupported, markAsFixed } from "@/lib/reports";
 import { getDeviceHash } from "@/lib/device";
 import { getPipelineIndex, getCategoryAgency, getAgencyHandle, FLAVOR_REACTIONS } from "@/lib/types";
@@ -49,34 +50,18 @@ function PawIcon({ size = 20, color = "currentColor" }: { size?: number; color?:
   );
 }
 
-function XIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-    </svg>
-  );
-}
-
 const MOCK_COMMENTS = [
-  { user: "watchdog_bk", avatar: "🐱", text: "Saw this on my way to work. Insane that it's been like this for weeks.", time: "2h ago" },
-  { user: "nyc_fixer", avatar: "🔧", text: "Called 311 about this twice already. No response.", time: "5h ago" },
-  { user: "street_eye", avatar: "👁️", text: "Same issue on the next block too. Whole area is neglected.", time: "1d ago" },
+  { id: "c1", user: "watchdog_bk", avatar: "🐱", text: "Saw this on my way to work. Insane that it's been like this for weeks.", time: "2h ago", replies: [
+    { user: "nyc_fixer", avatar: "🔧", text: "Same. I walk past this every day.", time: "1h ago" },
+  ] },
+  { id: "c2", user: "nyc_fixer", avatar: "🔧", text: "Called 311 about this twice already. No response.", time: "5h ago", replies: [] },
+  { id: "c3", user: "street_eye", avatar: "👁️", text: "Same issue on the next block too. Whole area is neglected.", time: "1d ago", replies: [] },
 ];
 
 function BackIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="15 18 9 12 15 6" />
-    </svg>
-  );
-}
-
-function ShareTopIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-      <polyline points="16 6 12 2 8 6" />
-      <line x1="12" y1="2" x2="12" y2="15" />
     </svg>
   );
 }
@@ -105,7 +90,7 @@ function PipelineTimeline({ report }: { report: Report }) {
   const createdDate = new Date(report.created_at);
 
   const stages = [
-    { label: "Reported", detail: `Filed via ${report.source === "citizen" ? "citizen" : "311"}`, date: createdDate, icon: "📍" },
+    { label: "Reported", detail: `Filed via ${report.source === "citizen" ? "resident" : "311"}`, date: createdDate, icon: "📍" },
     { label: "Assigned", detail: report.contractor_name || getCategoryAgency(report.category), date: currentIdx >= 1 ? new Date(createdDate.getTime() + 86400000 * 2) : null, icon: "📋" },
     { label: "In Progress", detail: report.contractor_name ? `${report.contractor_name} dispatched` : "Crew dispatched", date: currentIdx >= 2 ? new Date(createdDate.getTime() + 86400000 * 5) : null, icon: "🔧" },
     { label: "Resolved", detail: "Marked resolved", date: currentIdx >= 3 ? new Date(createdDate.getTime() + 86400000 * 12) : null, icon: "✅" },
@@ -229,6 +214,65 @@ function FlavorPopover({
   );
 }
 
+// Comment with threading
+function CommentThread({ comment, depth = 0 }: { comment: typeof MOCK_COMMENTS[0]; depth?: number }) {
+  const [showReplyInput, setShowReplyInput] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+
+  return (
+    <div className={depth > 0 ? "ml-8 pl-3 border-l border-white/[0.06]" : ""}>
+      <div className="flex gap-3">
+        <div className="w-8 h-8 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center shrink-0 text-[14px]">{comment.avatar}</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-semibold text-white">{comment.user}</span>
+            <span className="text-[10px] text-[var(--fc-muted)]">{comment.time}</span>
+          </div>
+          <p className="text-[13px] text-white/70 mt-0.5 leading-snug">{comment.text}</p>
+          <div className="flex items-center gap-3 mt-1.5">
+            <button
+              onClick={() => setShowReplyInput(!showReplyInput)}
+              className="text-[10px] text-[var(--fc-muted)] hover:text-[var(--fc-orange)] transition-colors font-medium"
+            >
+              Reply
+            </button>
+            {comment.replies && comment.replies.length > 0 && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="text-[10px] text-[var(--fc-muted)] hover:text-white transition-colors"
+              >
+                {expanded ? "Hide" : `Show ${comment.replies.length}`} {comment.replies.length === 1 ? "reply" : "replies"}
+              </button>
+            )}
+          </div>
+          {showReplyInput && (
+            <div className="flex items-center gap-2 mt-2">
+              <div className="flex-1 h-8 rounded-full bg-[var(--fc-surface-2)] border border-white/[0.06] flex items-center px-3">
+                <span className="text-[11px] text-[var(--fc-muted)]">Reply to {comment.user}...</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      {/* Replies */}
+      {expanded && comment.replies && comment.replies.map((reply, i) => (
+        <div key={i} className="mt-3 ml-8 pl-3 border-l border-white/[0.06]">
+          <div className="flex gap-3">
+            <div className="w-6 h-6 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center shrink-0 text-[11px]">{reply.avatar}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold text-white">{reply.user}</span>
+                <span className="text-[10px] text-[var(--fc-muted)]">{reply.time}</span>
+              </div>
+              <p className="text-[12px] text-white/70 mt-0.5 leading-snug">{reply.text}</p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ExposeClient() {
   const params = useParams();
   const router = useRouter();
@@ -248,6 +292,9 @@ export default function ExposeClient() {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didLongPress = useRef(false);
 
+  // Milestone celebration
+  const [showMilestone, setShowMilestone] = useState(false);
+
   useEffect(() => {
     async function load() {
       const data = await getReportById(id);
@@ -264,17 +311,34 @@ export default function ExposeClient() {
     load();
   }, [id]);
 
-  // Paw stamp handlers
+  // FIX: Un-stamp toggle
   const handleStamp = useCallback(async () => {
     if (didLongPress.current) { didLongPress.current = false; return; }
-    if (stamped || !report) return;
-    setStamped(true);
-    setStampCount((c) => c + 1);
-    setStampAnim(true);
-    setTimeout(() => setStampAnim(false), 600);
-    const dh = getDeviceHash();
-    await addSupport(report.id, dh);
-  }, [stamped, report]);
+    if (!report) return;
+
+    if (stamped) {
+      // UNSTAMP
+      setStamped(false);
+      setStampCount((c) => Math.max(0, c - 1));
+      setSelectedFlavor(null);
+    } else {
+      // STAMP
+      setStamped(true);
+      const newCount = stampCount + 1;
+      setStampCount(newCount);
+      setStampAnim(true);
+      setTimeout(() => setStampAnim(false), 600);
+
+      // Milestone celebrations
+      if (newCount === 50 || newCount === 100 || newCount === 500) {
+        setShowMilestone(true);
+        setTimeout(() => setShowMilestone(false), 3000);
+      }
+
+      const dh = getDeviceHash();
+      await addSupport(report.id, dh);
+    }
+  }, [stamped, report, stampCount]);
 
   const handlePressStart = useCallback(() => {
     didLongPress.current = false;
@@ -310,28 +374,6 @@ export default function ExposeClient() {
     }
   };
 
-  const handleShare = async () => {
-    if (!report) return;
-    const url = window.location.href;
-    if (navigator.share) {
-      try { await navigator.share({ title: report.title, text: `${report.title} — ${report.neighborhood || "NYC"}`, url }); } catch {}
-    } else {
-      await navigator.clipboard.writeText(url);
-      showToastMsg("Link copied");
-    }
-  };
-
-  // Pre-filled tweet with agency + council tags
-  const handleTweet = useCallback(() => {
-    if (!report) return;
-    const url = window.location.href;
-    const agencyHandle = getAgencyHandle(report.category);
-    const affected = stampCount > 0 ? `${stampCount} people affected. ` : "";
-    const daysOpen = Math.max(1, Math.floor((Date.now() - new Date(report.created_at).getTime()) / 86400000));
-    const text = `🚨 ${report.title} — ${report.neighborhood || "NYC"}. Open ${daysOpen} days. ${affected}${agencyHandle} what's the plan?\n\n${url}\n#FatCatsNYC #PointExposeFix`;
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
-  }, [report, stampCount]);
-
   const showToastMsg = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
@@ -365,10 +407,11 @@ export default function ExposeClient() {
   const isVerified = pipelineIdx >= 4;
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
   const flavorEmoji = selectedFlavor ? FLAVOR_REACTIONS.find((r) => r.label === selectedFlavor)?.emoji : null;
+  const daysOpen = Math.max(1, Math.floor((Date.now() - new Date(report.created_at).getTime()) / 86400000));
 
   return (
     <AppShell>
-      <div className="max-w-lg mx-auto animate-fade-in">
+      <div className="max-w-lg mx-auto animate-fade-in pb-20">
         {/* Hero image */}
         <div className="w-full aspect-[16/9] bg-[var(--fc-surface)] overflow-hidden relative">
           {heroSrc ? (
@@ -385,9 +428,12 @@ export default function ExposeClient() {
           <button onClick={() => router.back()} className="absolute top-4 left-4 w-10 h-10 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center active:scale-90 transition-transform">
             <BackIcon />
           </button>
-          <button onClick={handleShare} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-[var(--fc-orange)] flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-[var(--fc-orange)]/30">
-            <ShareTopIcon />
-          </button>
+          {/* Urgency badge */}
+          {daysOpen >= 14 && pipelineIdx < 3 && (
+            <div className="absolute top-4 right-4 px-3 py-1 rounded-lg bg-red-500/20 border border-red-500/30 backdrop-blur-sm">
+              <span className="text-[11px] font-bold text-red-400">Open {daysOpen} days</span>
+            </div>
+          )}
         </div>
 
         <div className="px-4 py-5 space-y-5">
@@ -396,7 +442,7 @@ export default function ExposeClient() {
             <div className="flex items-center gap-3 mb-3">
               <StatusPill status={report.status} />
               <span className="text-[11px] text-[var(--fc-muted)]">
-                {report.source === "citizen" ? "Citizen exposé" : "City data"}
+                {report.source === "citizen" ? "Resident exposé" : "City data"}
               </span>
               {isAuthor && report.status !== "fixed" && report.status !== "verified" && (
                 <button onClick={handleMarkFixed} className="ml-auto flex items-center gap-1 text-[11px] text-green-400 hover:text-green-300 transition-colors">
@@ -424,7 +470,7 @@ export default function ExposeClient() {
 
           {report.description && <p className="text-[14px] text-white/75 leading-relaxed">{report.description}</p>}
 
-          {/* Paw Stamp + Tweet CTA row */}
+          {/* Paw Stamp row (inline, not the share bar) */}
           <div className="flex items-center gap-3">
             {/* Paw stamp */}
             <div className="relative">
@@ -449,15 +495,6 @@ export default function ExposeClient() {
               </button>
               <FlavorPopover visible={showFlavors} onSelect={handleFlavorSelect} onClose={() => setShowFlavors(false)} />
             </div>
-
-            {/* Tweet to officials */}
-            <button
-              onClick={handleTweet}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[14px] font-bold bg-white/[0.06] text-white border-2 border-white/[0.08] hover:bg-white/[0.1] transition-all active:scale-95"
-            >
-              <XIcon />
-              <span>Tweet Officials</span>
-            </button>
           </div>
 
           {/* Contractor info card */}
@@ -508,7 +545,7 @@ export default function ExposeClient() {
             </div>
             <div className="glass-card p-3.5">
               <span className="text-[11px] text-[var(--fc-muted)] block mb-1">Source</span>
-              <span className="text-[13px] text-white font-medium">{report.source === "citizen" ? "Citizen exposé" : "NYC 311 data"}</span>
+              <span className="text-[13px] text-white font-medium">{report.source === "citizen" ? "Resident exposé" : "NYC 311 data"}</span>
             </div>
             {report.category && (
               <div className="glass-card p-3.5">
@@ -547,21 +584,12 @@ export default function ExposeClient() {
             </div>
           )}
 
-          {/* Comments */}
+          {/* Comments with threading */}
           <div className="space-y-3">
             <h3 className="text-[13px] font-semibold text-white/60 uppercase tracking-wider">Comments</h3>
-            <div className="space-y-3">
-              {MOCK_COMMENTS.map((c, i) => (
-                <div key={i} className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center shrink-0 text-[14px]">{c.avatar}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[12px] font-semibold text-white">{c.user}</span>
-                      <span className="text-[10px] text-[var(--fc-muted)]">{c.time}</span>
-                    </div>
-                    <p className="text-[13px] text-white/70 mt-0.5 leading-snug">{c.text}</p>
-                  </div>
-                </div>
+            <div className="space-y-4">
+              {MOCK_COMMENTS.map((c) => (
+                <CommentThread key={c.id} comment={c} />
               ))}
             </div>
             <div className="flex items-center gap-2 pt-2">
@@ -572,24 +600,33 @@ export default function ExposeClient() {
             </div>
           </div>
 
-          {/* Share section */}
-          <div className="space-y-3 pt-2">
-            <button onClick={handleShare} className="w-full h-12 rounded-xl bg-[var(--fc-orange)] hover:bg-[var(--fc-orange-hover)] text-white font-bold text-[15px] transition-colors active:scale-[0.98]">
-              Share this exposé
-            </button>
-            <div className="flex items-center justify-center gap-4 text-[12px]">
-              <a href={`https://wa.me/?text=${encodeURIComponent(`🚨 ${report.title} — ${report.neighborhood || "NYC"}. ${shareUrl} #FatCatsNYC`)}`} target="_blank" rel="noopener noreferrer" className="text-[var(--fc-muted)] hover:text-white transition-colors">WhatsApp</a>
-              <span className="text-white/10">|</span>
-              <button onClick={handleTweet} className="text-[var(--fc-muted)] hover:text-white transition-colors">Twitter/X</button>
-              <span className="text-white/10">|</span>
-              <button onClick={() => { navigator.clipboard.writeText(shareUrl); showToastMsg("Link copied"); }} className="text-[var(--fc-muted)] hover:text-white transition-colors">Copy link</button>
-            </div>
-          </div>
-
           <p className="text-[11px] text-[var(--fc-muted)] text-center pb-2">
             Every exposé is a receipt. Thanks for helping your city.
           </p>
         </div>
+
+        {/* Sticky share bar at bottom — X, Reddit, Share */}
+        <ShareSheet
+          title={report.title}
+          neighborhood={report.neighborhood}
+          url={shareUrl}
+          category={report.category}
+          stampCount={stampCount}
+          createdAt={report.created_at}
+          agencyHandle={getAgencyHandle(report.category)}
+          variant="sticky"
+        />
+
+        {/* Milestone celebration overlay */}
+        {showMilestone && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+            <div className="bg-[var(--fc-surface)]/95 backdrop-blur-xl border border-[var(--fc-orange)]/30 rounded-2xl p-8 text-center animate-scale-in shadow-2xl">
+              <div className="text-5xl mb-3">🎉</div>
+              <p className="text-lg font-bold text-white">{stampCount} people affected</p>
+              <p className="text-[13px] text-[var(--fc-muted)] mt-1">This exposé is gaining traction</p>
+            </div>
+          </div>
+        )}
 
         {toast && (
           <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[var(--fc-surface)]/90 backdrop-blur-xl border border-white/10 text-white text-sm px-5 py-2.5 rounded-xl animate-slide-up z-[60] shadow-xl">

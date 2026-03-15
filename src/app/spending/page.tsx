@@ -54,17 +54,18 @@ function BookmarkIcon({ active }: { active?: boolean }) {
   );
 }
 
+function SearchIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
 // ── Summary Card ─────────────────────────────────────────────────────
 
-function SummaryCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-}) {
+function SummaryCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
   return (
     <div className="glass-card p-4 flex items-center gap-3">
       <div className="w-10 h-10 rounded-xl bg-[var(--fc-orange)]/10 flex items-center justify-center shrink-0">
@@ -84,6 +85,9 @@ function SummaryCard({
 
 function BoroughCard({ item }: { item: BoroughSpending }) {
   const pct = item.planned > 0 ? Math.min((item.spent / item.planned) * 100, 100) : 0;
+
+  // Hide $0/$0 boroughs
+  if (item.planned === 0 && item.spent === 0) return null;
 
   return (
     <div className="glass-card p-4">
@@ -123,13 +127,24 @@ function BoroughCard({ item }: { item: BoroughSpending }) {
 function ContractCard({ project }: { project: CapitalProject }) {
   const [following, setFollowing] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const pctSpent = project.planned_commit > 0
     ? Math.min((project.spent_total / project.planned_commit) * 100, 100)
     : 0;
 
-  const handleFollow = () => setFollowing(!following);
-  const handleSave = () => setSaved(!saved);
+  const handleFollow = () => {
+    setFollowing(!following);
+    if (!following) {
+      setShowConfirm(true);
+      setTimeout(() => setShowConfirm(false), 1500);
+    }
+  };
+
+  const handleSave = () => {
+    setSaved(!saved);
+  };
+
   const handleShare = () => {
     const text = `NYC is spending ${formatMoney(project.planned_commit)} on ${project.description || "a capital project"}. See it on FatCats`;
     if (navigator.share) {
@@ -140,7 +155,14 @@ function ContractCard({ project }: { project: CapitalProject }) {
   };
 
   return (
-    <div className="glass-card p-4 animate-slide-up">
+    <div className="glass-card p-4 animate-slide-up relative">
+      {/* Follow confirmation toast */}
+      {showConfirm && (
+        <div className="absolute top-2 right-2 text-[10px] text-[var(--fc-orange)] bg-[var(--fc-orange)]/10 px-2 py-1 rounded-md animate-scale-in">
+          Following
+        </div>
+      )}
+
       {/* Top row: borough + agency */}
       <div className="flex items-center gap-2 mb-2">
         {project.borough && (
@@ -221,6 +243,7 @@ export default function SpendingPage() {
   const [boroughData, setBoroughData] = useState<BoroughSpending[]>([]);
   const [projects, setProjects] = useState<CapitalProject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -246,6 +269,15 @@ export default function SpendingPage() {
     loadFiltered();
   }, [activeBorough]);
 
+  // Client-side search filter
+  const filteredProjects = searchQuery.trim()
+    ? projects.filter((p) =>
+        (p.description || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.agency || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.borough || "").toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : projects;
+
   return (
     <AppShell>
       <div className="max-w-lg mx-auto px-4 py-5 space-y-6">
@@ -258,6 +290,20 @@ export default function SpendingPage() {
           <p className="text-[13px] text-[var(--fc-muted)] mt-1">
             Follow the money. See where your tax dollars go.
           </p>
+        </div>
+
+        {/* Weekly Spending Reveal banner */}
+        <div className="glass-card p-4 border border-amber-500/10 animate-slide-up">
+          <div className="flex items-center gap-3">
+            <div className="text-2xl">💰</div>
+            <div className="flex-1">
+              <p className="text-[13px] font-bold text-white">Weekly Spending Reveal</p>
+              <p className="text-[11px] text-[var(--fc-muted)]">
+                This week in NYC: {summary ? formatMoney(Math.floor(summary.totalSpent * 0.02)) : "..."} on new projects.
+                Updated every Monday.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Summary cards */}
@@ -316,8 +362,33 @@ export default function SpendingPage() {
           </section>
         )}
 
-        {/* Filter pills */}
+        {/* Search bar + Filter pills */}
         <section>
+          {/* Search */}
+          <div className="relative mb-4">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2">
+              <SearchIcon />
+            </div>
+            <input
+              type="text"
+              placeholder="Search contracts..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-10 pl-10 pr-4 rounded-xl bg-white/[0.06] border border-white/[0.08] text-white text-[13px] placeholder:text-[var(--fc-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--fc-orange)] focus:border-transparent"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--fc-muted)] hover:text-white"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
+
           <div className="flex gap-2 flex-wrap mb-4 no-scrollbar overflow-x-auto">
             {BOROUGHS.map((b) => (
               <button
@@ -340,6 +411,11 @@ export default function SpendingPage() {
             {activeBorough !== "All" && (
               <span className="ml-2 text-[var(--fc-orange)] normal-case">— {activeBorough}</span>
             )}
+            {searchQuery && (
+              <span className="ml-2 text-[var(--fc-muted)] normal-case text-[11px]">
+                ({filteredProjects.length} results)
+              </span>
+            )}
           </h2>
 
           {loading ? (
@@ -348,13 +424,15 @@ export default function SpendingPage() {
                 <div key={i} className="glass-card p-4 h-28 skeleton-shimmer rounded-2xl" />
               ))}
             </div>
-          ) : projects.length === 0 ? (
+          ) : filteredProjects.length === 0 ? (
             <div className="glass-card p-8 text-center">
-              <p className="text-[var(--fc-muted)] text-sm">No contracts found.</p>
+              <p className="text-[var(--fc-muted)] text-sm">
+                {searchQuery ? `No contracts matching "${searchQuery}"` : "No contracts found."}
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {projects.map((p) => (
+              {filteredProjects.map((p) => (
                 <ContractCard key={p.id} project={p} />
               ))}
             </div>

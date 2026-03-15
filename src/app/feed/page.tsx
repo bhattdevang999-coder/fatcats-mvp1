@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import AppShell from "@/components/AppShell";
 import ReportCard from "@/components/ReportCard";
 import { listReports, listNearbyReports } from "@/lib/reports";
@@ -51,15 +51,32 @@ export default function FeedPage() {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [locationRequested, setLocationRequested] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const filterScrollRef = useRef<HTMLDivElement>(null);
+  const [showScrollHint, setShowScrollHint] = useState(true);
 
-  useEffect(() => {
-    async function load() {
-      const data = await listReports({ limit: 100 });
-      setReports(data);
-      setLoading(false);
-    }
-    load();
+  const loadReports = useCallback(async () => {
+    const data = await listReports({ limit: 100 });
+    setReports(data);
+    setLoading(false);
+    setRefreshing(false);
   }, []);
+
+  useEffect(() => { loadReports(); }, [loadReports]);
+
+  // Hide scroll hint after user scrolls filter row
+  useEffect(() => {
+    const el = filterScrollRef.current;
+    if (!el) return;
+    const handler = () => setShowScrollHint(false);
+    el.addEventListener("scroll", handler, { once: true });
+    return () => el.removeEventListener("scroll", handler);
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadReports();
+  }, [loadReports]);
 
   const handleLocation = () => {
     if (locationRequested) return;
@@ -98,7 +115,7 @@ export default function FeedPage() {
 
   return (
     <AppShell>
-      <div className="max-w-lg mx-auto px-4 py-4">
+      <div className="max-w-5xl mx-auto px-4 py-4">
         {/* Feed type tabs */}
         <div className="flex items-center gap-2 mb-3">
           {FEED_TABS.map((t) => (
@@ -119,36 +136,55 @@ export default function FeedPage() {
               {t.label}
             </button>
           ))}
+
+          {/* Pull-to-refresh button (mobile friendly) */}
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="ml-auto w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors active:scale-90"
+            title="Refresh feed"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}>
+              <polyline points="23 4 23 10 17 10" />
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            </svg>
+          </button>
         </div>
 
-        {/* Pipeline filter tabs */}
-        <div className="flex items-center gap-1.5 mb-4 overflow-x-auto scrollbar-hide pb-1">
-          {FILTER_TABS.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all active:scale-95 ${
-                filter === f.key
-                  ? "bg-white/[0.12] text-white border border-white/[0.15]"
-                  : "bg-white/[0.03] text-[var(--fc-muted)] border border-white/[0.04] hover:bg-white/[0.06]"
-              }`}
-            >
-              {f.emoji && <span className="text-[10px]">{f.emoji}</span>}
-              {f.label}
-              {counts[f.key] > 0 && (
-                <span className={`text-[9px] px-1.5 py-0.5 rounded-full ml-0.5 ${
-                  filter === f.key ? "bg-white/20 text-white" : "bg-white/[0.06] text-[var(--fc-muted)]"
-                }`}>
-                  {counts[f.key]}
-                </span>
-              )}
-            </button>
-          ))}
+        {/* Pipeline filter tabs with scroll indicator */}
+        <div className="relative mb-4">
+          <div ref={filterScrollRef} className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-1">
+            {FILTER_TABS.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all active:scale-95 ${
+                  filter === f.key
+                    ? "bg-white/[0.12] text-white border border-white/[0.15]"
+                    : "bg-white/[0.03] text-[var(--fc-muted)] border border-white/[0.04] hover:bg-white/[0.06]"
+                }`}
+              >
+                {f.emoji && <span className="text-[10px]">{f.emoji}</span>}
+                {f.label}
+                {counts[f.key] > 0 && (
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full ml-0.5 ${
+                    filter === f.key ? "bg-white/20 text-white" : "bg-white/[0.06] text-[var(--fc-muted)]"
+                  }`}>
+                    {counts[f.key]}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          {/* Scroll fade indicator */}
+          {showScrollHint && (
+            <div className="absolute right-0 top-0 bottom-1 w-8 bg-gradient-to-l from-[var(--fc-bg)] to-transparent pointer-events-none" />
+          )}
         </div>
 
         {/* Loading state */}
         {loading && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2">
             {[1, 2, 3].map((i) => (
               <div key={i} className="glass-card h-[340px] animate-pulse bg-white/[0.03]" />
             ))}
@@ -167,21 +203,30 @@ export default function FeedPage() {
         {!loading && displayReports.length === 0 && (
           <div className="text-center py-16">
             <div className="text-4xl mb-3">
-              {filter === "verify" ? "✅" : "📭"}
+              {filter === "verify" ? "✅" : filter === "resolved" ? "🎉" : filter === "in_progress" ? "🔧" : "📭"}
             </div>
-            <p className="text-[var(--fc-muted)] text-sm">
+            <p className="text-white text-[15px] font-semibold mb-1">
               {filter === "verify"
-                ? "No reports waiting for verification right now."
-                : filter === "all"
-                ? "No reports found."
-                : `No ${FILTER_TABS.find(f => f.key === filter)?.label.toLowerCase()} reports right now.`}
+                ? "No reports to verify"
+                : filter === "resolved"
+                ? "No resolved reports yet"
+                : filter === "in_progress"
+                ? "Nothing in progress right now"
+                : filter === "open"
+                ? "No open reports"
+                : "No reports found"}
+            </p>
+            <p className="text-[var(--fc-muted)] text-sm">
+              {filter === "all"
+                ? "Be the first to file an exposé."
+                : "Try a different filter or check back later."}
             </p>
           </div>
         )}
 
-        {/* Report cards */}
+        {/* Report cards — two-column on desktop */}
         {!loading && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-5">
             {displayReports.map((report) => (
               <ReportCard key={report.id} report={report} />
             ))}

@@ -3,21 +3,43 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+
+const Onboarding = dynamic(() => import("@/components/Onboarding"), { ssr: false });
 
 export default function SplashPage() {
   const router = useRouter();
-  const [phase, setPhase] = useState<"enter" | "exit">("enter");
+  const [phase, setPhase] = useState<"enter" | "exit" | "onboarding">("enter");
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
-    // After 1.2s, start exit animation
-    const exitTimer = setTimeout(() => setPhase("exit"), 1200);
-    // After 1.8s total, navigate to feed
-    const navTimer = setTimeout(() => router.replace("/feed"), 1800);
-    return () => {
-      clearTimeout(exitTimer);
-      clearTimeout(navTimer);
-    };
+    // Check if user has seen onboarding
+    const seen = typeof window !== "undefined" && window.sessionStorage?.getItem?.("fc_onboarded");
+
+    if (seen) {
+      // Skip onboarding
+      const exitTimer = setTimeout(() => setPhase("exit"), 1200);
+      const navTimer = setTimeout(() => router.replace("/feed"), 1800);
+      return () => { clearTimeout(exitTimer); clearTimeout(navTimer); };
+    } else {
+      // Show onboarding after splash
+      const timer = setTimeout(() => {
+        setPhase("onboarding");
+        setShowOnboarding(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
   }, [router]);
+
+  const handleOnboardingComplete = () => {
+    try { window.sessionStorage?.setItem?.("fc_onboarded", "1"); } catch {}
+    setShowOnboarding(false);
+    router.replace("/feed");
+  };
+
+  if (showOnboarding) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
 
   return (
     <div
