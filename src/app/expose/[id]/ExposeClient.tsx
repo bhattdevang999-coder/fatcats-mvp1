@@ -10,6 +10,8 @@ import { getReportById, addSupport, hasSupported, markAsFixed } from "@/lib/repo
 import { getDeviceHash } from "@/lib/device";
 import { getPipelineIndex, getCategoryAgency, getAgencyHandle, FLAVOR_REACTIONS } from "@/lib/types";
 import type { Report } from "@/lib/types";
+import { getFullGeoIntelligence, estimateRepairCost } from "@/lib/geo-intelligence";
+import type { GeoIntelligence } from "@/lib/geo-intelligence";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -295,6 +297,10 @@ export default function ExposeClient() {
   // Milestone celebration
   const [showMilestone, setShowMilestone] = useState(false);
 
+  // Geo-intelligence state
+  const [geoIntel, setGeoIntel] = useState<GeoIntelligence | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+
   useEffect(() => {
     async function load() {
       const data = await getReportById(id);
@@ -310,6 +316,22 @@ export default function ExposeClient() {
     }
     load();
   }, [id]);
+
+  // Fetch geo-intelligence after report loads
+  useEffect(() => {
+    async function loadGeo() {
+      if (!report || report.lat == null || report.lng == null) return;
+      setGeoLoading(true);
+      try {
+        const intel = await getFullGeoIntelligence(report.lat, report.lng, report.category);
+        setGeoIntel(intel);
+      } catch {
+        // Geo intel failed silently
+      }
+      setGeoLoading(false);
+    }
+    loadGeo();
+  }, [report?.id, report?.lat, report?.lng, report?.category]);
 
   // FIX: Un-stamp toggle
   const handleStamp = useCallback(async () => {
@@ -497,6 +519,48 @@ export default function ExposeClient() {
             </div>
           </div>
 
+          {/* Cost Intelligence card */}
+          {(() => {
+            const costData = estimateRepairCost(report.category);
+            return (
+              <div className="glass-card p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <span className="text-[16px]">💰</span>
+                  Cost Intelligence
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-[11px] text-[var(--fc-muted)] block">Est. repair cost</span>
+                    <span className="text-[15px] text-white font-bold">{costData.range}</span>
+                    <span className="text-[11px] text-[var(--fc-muted)] block">{costData.unit}</span>
+                  </div>
+                  {geoIntel?.totalAreaSpend && (
+                    <div>
+                      <span className="text-[11px] text-[var(--fc-muted)] block">Area total spend</span>
+                      <span className="text-[15px] text-white font-bold">{geoIntel.totalAreaSpend}</span>
+                      <span className="text-[11px] text-[var(--fc-muted)] block">{geoIntel.nearbyCount} issues nearby</span>
+                    </div>
+                  )}
+                </div>
+                {geoIntel?.isRepeatOffender && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <span className="text-[14px]">🔄</span>
+                    <div>
+                      <span className="text-[12px] text-red-400 font-semibold">Repeat Issue — {geoIntel.repeatCount} times at this spot</span>
+                      <span className="text-[11px] text-[var(--fc-muted)] block">The same type of problem keeps occurring here</span>
+                    </div>
+                  </div>
+                )}
+                {geoIntel?.oldestOpenDays != null && geoIntel.oldestOpenDays > 7 && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <span className="text-[14px]">⏳</span>
+                    <span className="text-[12px] text-amber-400">Oldest open issue nearby: <span className="font-semibold">{geoIntel.oldestOpenDays} days</span></span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Contractor info card */}
           {report.contractor_name && (
             <div className="glass-card p-4 space-y-2">
@@ -569,18 +633,49 @@ export default function ExposeClient() {
                 </svg>
                 Who handles this
               </h3>
-              {report.neighborhood && (
-                <p className="text-[13px] text-[var(--fc-muted)]">This is in <span className="text-white font-medium">{report.neighborhood}</span></p>
+              {(geoIntel?.neighborhood || report.neighborhood) && (
+                <p className="text-[13px] text-[var(--fc-muted)]">
+                  This is in <span className="text-white font-medium">{geoIntel?.neighborhood || report.neighborhood}</span>
+                  {geoIntel?.nearestIntersection && (
+                    <span className="text-[var(--fc-muted)]"> — {geoIntel.nearestIntersection}</span>
+                  )}
+                </p>
               )}
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--fc-info)]/10 border border-[var(--fc-info)]/20">
                 <span className="text-[12px] text-[var(--fc-info)] font-semibold">{getCategoryAgency(report.category)}</span>
               </div>
-              <div>
+              {/* Council member — auto-detected */}
+              {geoIntel?.councilMember ? (
+                <div className="px-3 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[14px]">🏛️</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[11px] text-[var(--fc-muted)] block">Council District {geoIntel.councilMember.district} · {geoIntel.councilMember.borough}</span>
+                      <span className="text-[13px] text-white font-medium">{geoIntel.councilMember.name}</span>
+                      {geoIntel.councilMember.twitterHandle && (
+                        <a
+                          href={`https://twitter.com/${geoIntel.councilMember.twitterHandle.replace('@', '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[12px] text-[var(--fc-info)] hover:underline block"
+                        >
+                          {geoIntel.councilMember.twitterHandle}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : geoLoading ? (
+                <div className="flex items-center gap-2 px-3 py-2">
+                  <div className="w-4 h-4 border-2 border-[var(--fc-orange)] border-t-transparent rounded-full animate-spin" />
+                  <span className="text-[12px] text-[var(--fc-muted)]">Looking up council member...</span>
+                </div>
+              ) : (
                 <a href="https://council.nyc.gov/districts/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] text-[var(--fc-orange)] font-medium hover:underline">
                   Look up your council member
                   <ExternalLinkIcon />
                 </a>
-              </div>
+              )}
             </div>
           )}
 
@@ -614,6 +709,7 @@ export default function ExposeClient() {
           stampCount={stampCount}
           createdAt={report.created_at}
           agencyHandle={getAgencyHandle(report.category)}
+          councilMemberHandle={geoIntel?.councilMember?.twitterHandle || undefined}
           variant="sticky"
         />
 

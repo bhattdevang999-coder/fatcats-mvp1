@@ -39,6 +39,7 @@ interface ShareSheetProps {
   stampCount: number;
   createdAt: string;
   agencyHandle: string;
+  councilMemberHandle?: string;
   variant?: "sticky" | "inline";
 }
 
@@ -51,6 +52,7 @@ export default function ShareSheet({
   stampCount,
   createdAt,
   agencyHandle,
+  councilMemberHandle,
   variant = "inline",
 }: ShareSheetProps) {
   const [showMore, setShowMore] = useState(false);
@@ -60,7 +62,8 @@ export default function ShareSheet({
   const affected = stampCount > 0 ? `${stampCount} people affected. ` : "";
 
   const handleX = () => {
-    const text = `🚨 ${title} — ${neighborhood || "NYC"}. Open ${daysOpen} days. ${affected}${agencyHandle} what's the plan?\n\n${url}\n#FatCatsNYC #PointExposeFix`;
+    const councilTag = councilMemberHandle ? ` ${councilMemberHandle}` : "";
+    const text = `🚨 ${title} — ${neighborhood || "NYC"}. Open ${daysOpen} days. ${affected}${agencyHandle}${councilTag} what's the plan?\n\n${url}\n#FatCatsNYC #PointExposeFix`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };
 
