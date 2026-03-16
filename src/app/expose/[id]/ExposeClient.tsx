@@ -777,7 +777,7 @@ export default function ExposeClient() {
 
         {/* Follow nudge banner — slides up after 3s for first-time visitors */}
         {showFollowNudge && (
-          <div className="fixed bottom-[72px] left-0 right-0 z-50 flex justify-center px-4 animate-slide-up">
+          <div className="fixed bottom-[120px] left-0 right-0 z-50 flex justify-center px-4 animate-slide-up">
             <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-[var(--fc-surface)]/95 backdrop-blur-xl border border-[var(--fc-orange)]/20 shadow-xl max-w-md w-full">
               <span className="text-[13px] text-white font-medium flex-1">Follow this exposé for updates</span>
               <FollowButton kind="report" id={report.id} variant="compact" />
