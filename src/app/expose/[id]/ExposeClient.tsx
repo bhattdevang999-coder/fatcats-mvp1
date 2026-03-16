@@ -309,6 +309,14 @@ export default function ExposeClient() {
   // Follow nudge banner
   const [showFollowNudge, setShowFollowNudge] = useState(false);
 
+  // Email capture state (soft gate after "I'm Affected" tap)
+  const [captureEmail, setCaptureEmail] = useState("");
+  const [emailCaptured, setEmailCaptured] = useState(false);
+
+  // "See Your Block" slide-up CTA
+  const [showSeeBlock, setShowSeeBlock] = useState(false);
+  const [blockDismissed, setBlockDismissed] = useState(false);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (hasSeenFollowNudge()) return;
@@ -401,6 +409,29 @@ export default function ExposeClient() {
       await addSupport(report.id, dh);
     }
   }, [stamped, report]);
+
+  // Email capture handler — stores in localStorage (no auth needed)
+  const handleEmailCapture = useCallback(() => {
+    if (!captureEmail.includes("@")) return;
+    try {
+      const stored = JSON.parse(localStorage.getItem("fc_email_captures") || "[]");
+      stored.push({ email: captureEmail, reportId: id, ts: Date.now() });
+      localStorage.setItem("fc_email_captures", JSON.stringify(stored));
+      localStorage.setItem("fc_user_email", captureEmail);
+    } catch {}
+    setEmailCaptured(true);
+  }, [captureEmail, id]);
+
+  // "See Your Block" CTA — appears after user scrolls past halfway
+  useEffect(() => {
+    if (blockDismissed) return;
+    const handleScroll = () => {
+      const scrollPct = window.scrollY / (document.body.scrollHeight - window.innerHeight);
+      if (scrollPct > 0.4) setShowSeeBlock(true);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [blockDismissed]);
 
   const handleMarkFixed = async () => {
     if (!report) return;
@@ -509,33 +540,52 @@ export default function ExposeClient() {
 
           {report.description && <p className="text-[14px] text-white/75 leading-relaxed">{report.description}</p>}
 
-          {/* Paw Stamp row (inline, not the share bar) */}
-          <div className="flex items-center gap-3">
-            {/* Paw stamp */}
-            <div className="relative">
-              <button
-                onMouseDown={handlePressStart}
-                onMouseUp={handlePressEnd}
-                onMouseLeave={handlePressEnd}
-                onTouchStart={handlePressStart}
-                onTouchEnd={handlePressEnd}
-                onClick={handleStamp}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[14px] font-bold transition-all active:scale-95 select-none ${
-                  stamped
-                    ? "bg-[var(--fc-orange)]/15 text-[var(--fc-orange)] border-2 border-[var(--fc-orange)]/30"
-                    : "bg-white/[0.06] text-white border-2 border-white/[0.08] hover:bg-white/[0.1]"
-                }`}
-              >
-                <span className={`text-[18px] transition-transform ${stampAnim ? "animate-heart-pop" : ""}`}>
-                  {flavorEmoji || <PawIcon size={20} color={stamped ? "#E8652B" : "#ffffff"} />}
-                </span>
-                <span>{stampCount}</span>
-                <span className="text-[11px] font-normal text-[var(--fc-muted)]">affected</span>
-              </button>
-              <FlavorPopover visible={showFlavors} onSelect={handleFlavorSelect} onClose={() => setShowFlavors(false)} />
-            </div>
+          {/* ✨ "I'm Affected Too" prominent CTA — THE gateway drug */}
+          <div className="space-y-3">
+            <button
+              onMouseDown={handlePressStart}
+              onMouseUp={handlePressEnd}
+              onMouseLeave={handlePressEnd}
+              onTouchStart={handlePressStart}
+              onTouchEnd={handlePressEnd}
+              onClick={handleStamp}
+              className={`w-full flex items-center justify-center gap-3 py-4 rounded-2xl text-[16px] font-bold transition-all active:scale-[0.97] select-none ${
+                stamped
+                  ? "bg-[var(--fc-orange)]/15 text-[var(--fc-orange)] border-2 border-[var(--fc-orange)]/40 shadow-[0_0_20px_rgba(232,101,43,0.15)]"
+                  : "bg-gradient-to-r from-[var(--fc-orange)] to-[#ff8c5a] text-white border-2 border-[var(--fc-orange)]/20 shadow-[0_4px_20px_rgba(232,101,43,0.3)] hover:shadow-[0_4px_30px_rgba(232,101,43,0.45)]"
+              }`}
+            >
+              <span className={`text-[22px] transition-transform ${stampAnim ? "animate-heart-pop" : ""}`}>
+                {flavorEmoji || <PawIcon size={24} color={stamped ? "#E8652B" : "#ffffff"} />}
+              </span>
+              <span>{stamped ? `You + ${Math.max(0, stampCount - 1)} affected` : "I'm Affected Too"}</span>
+              {!stamped && <span className="text-white/70 text-[13px] font-normal">🐾</span>}
+            </button>
+            <FlavorPopover visible={showFlavors} onSelect={handleFlavorSelect} onClose={() => setShowFlavors(false)} />
 
-
+            {/* Soft email capture — appears after first stamp */}
+            {stamped && !emailCaptured && (
+              <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] animate-fade-in">
+                <span className="text-[13px] text-[var(--fc-muted)] shrink-0">Get updates on this issue:</span>
+                <input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={captureEmail}
+                  onChange={(e) => setCaptureEmail(e.target.value)}
+                  className="flex-1 bg-transparent text-white text-[13px] outline-none placeholder:text-white/20 min-w-0"
+                />
+                <button
+                  onClick={handleEmailCapture}
+                  disabled={!captureEmail.includes("@")}
+                  className="px-3 py-1.5 rounded-lg bg-[var(--fc-orange)] text-white text-[12px] font-bold disabled:opacity-30 hover:bg-[var(--fc-orange-hover)] transition-all active:scale-95 shrink-0"
+                >
+                  Track
+                </button>
+              </div>
+            )}
+            {emailCaptured && (
+              <p className="text-[12px] text-green-400 text-center animate-fade-in">✓ We&apos;ll notify you when this changes</p>
+            )}
           </div>
 
           {/* Cost Intelligence card */}
@@ -717,14 +767,14 @@ export default function ExposeClient() {
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--fc-info)]/10 border border-[var(--fc-info)]/20">
                 <span className="text-[12px] text-[var(--fc-info)] font-semibold">{getCategoryAgency(report.category)}</span>
               </div>
-              {/* Council member — auto-detected */}
+              {/* Council member — auto-detected + claim profile CTA */}
               {geoIntel?.councilMember ? (
-                <div className="px-3 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[14px]">🏛️</span>
+                <div className="px-3 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center text-[18px] shrink-0">🏛️</div>
                     <div className="flex-1 min-w-0">
                       <span className="text-[11px] text-[var(--fc-muted)] block">Council District {geoIntel.councilMember.district} · {geoIntel.councilMember.borough}</span>
-                      <span className="text-[13px] text-white font-medium">{geoIntel.councilMember.name}</span>
+                      <span className="text-[14px] text-white font-semibold">{geoIntel.councilMember.name}</span>
                       {geoIntel.councilMember.twitterHandle && (
                         <a
                           href={`https://twitter.com/${geoIntel.councilMember.twitterHandle.replace('@', '')}`}
@@ -736,7 +786,33 @@ export default function ExposeClient() {
                         </a>
                       )}
                     </div>
+                    {/* Tweet @ official button */}
+                    {geoIntel.councilMember.twitterHandle && (
+                      <button
+                        onClick={() => {
+                          const handle = geoIntel.councilMember?.twitterHandle || "";
+                          const costData = estimateRepairCost(report.category);
+                          const text = `${handle} ${costData.range} spent, ${report.title.toLowerCase()} in ${report.neighborhood || "NYC"} is still unresolved after ${daysOpen} days. ${stampCount} people affected.\n\nPoint. Expose. Fix. \u2192 ${typeof window !== "undefined" ? window.location.href : ""}`;
+                          window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank");
+                        }}
+                        className="px-3 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-white text-[11px] font-bold transition-all active:scale-95 shrink-0"
+                      >
+                        Tweet @
+                      </button>
+                    )}
                   </div>
+                  {/* One-click claim profile */}
+                  <button
+                    onClick={() => {
+                      const name = geoIntel.councilMember?.name || "official";
+                      const claimUrl = `mailto:team@fatcatsapp.com?subject=Claim%20Profile%3A%20${encodeURIComponent(name)}&body=I%20am%20${encodeURIComponent(name)}%20and%20I%27d%20like%20to%20claim%20my%20FatCats%20profile%20to%20respond%20to%20constituents.`;
+                      window.open(claimUrl, "_blank");
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/[0.03] border border-dashed border-white/[0.1] text-[var(--fc-muted)] hover:text-white hover:bg-white/[0.06] hover:border-[var(--fc-orange)]/30 transition-all text-[12px] font-medium"
+                  >
+                    <span className="text-[14px]">✨</span>
+                    Are you {geoIntel.councilMember.name}? Claim your profile to respond
+                  </button>
                 </div>
               ) : geoLoading ? (
                 <div className="flex items-center gap-2 px-3 py-2">
@@ -784,6 +860,27 @@ export default function ExposeClient() {
               <button
                 onClick={() => { setShowFollowNudge(false); markFollowNudgeSeen(); }}
                 className="text-[var(--fc-muted)] hover:text-white transition-colors text-xs"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 🗺️ "See Your Block" slide-up CTA */}
+        {showSeeBlock && !blockDismissed && (
+          <div className="fixed bottom-[120px] left-0 right-0 z-40 flex justify-center px-4 animate-slide-up">
+            <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-[var(--fc-surface)]/95 backdrop-blur-xl border border-[var(--fc-orange)]/20 shadow-2xl max-w-md w-full">
+              <span className="text-[20px]">🗺️</span>
+              <a
+                href="/map"
+                className="flex-1 text-[14px] text-white font-semibold hover:text-[var(--fc-orange)] transition-colors"
+              >
+                See what&apos;s happening on YOUR block →
+              </a>
+              <button
+                onClick={() => setBlockDismissed(true)}
+                className="text-[var(--fc-muted)] hover:text-white transition-colors text-xs shrink-0"
               >
                 ✕
               </button>

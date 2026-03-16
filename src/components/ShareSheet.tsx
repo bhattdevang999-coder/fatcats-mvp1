@@ -50,6 +50,11 @@ interface ShareSheetProps {
   projectId?: string;
 }
 
+function addUtm(baseUrl: string, source: string): string {
+  const sep = baseUrl.includes("?") ? "&" : "?";
+  return `${baseUrl}${sep}ref=${source}&utm_source=${source}&utm_medium=share&utm_campaign=expose`;
+}
+
 export default function ShareSheet({
   title,
   neighborhood,
@@ -74,31 +79,35 @@ export default function ShareSheet({
   const affected = stampCount > 0 ? `${stampCount} people affected. ` : "";
 
   const handleX = () => {
+    const shareUrl = addUtm(url, "twitter");
     const councilTag = councilMemberHandle ? ` ${councilMemberHandle}` : "";
-    const costLine = costRange ? `Est. cost: ${costRange}. ` : "";
+    const costLead = costRange ? `${costRange} spent. ` : "";
     const areaLine = totalAreaSpend && nearbyCount ? `${nearbyCount} issues within ~3 blocks = ${totalAreaSpend} in taxpayer money. ` : "";
-    const text = `🚨 ${title} — ${neighborhood || "NYC"}\n\nOpen ${daysOpen} days. ${affected}${costLine}${areaLine}\n\n${agencyHandle}${councilTag} what's the plan?\n\n${url}\n#FatCatsNYC #PointExposeFix`;
+    const text = `${costLead}${title} — ${neighborhood || "NYC"}\n\nOpen ${daysOpen} days. ${affected}${areaLine}\n\n${agencyHandle}${councilTag} what's the plan?\n\nPoint. Expose. Fix. → ${shareUrl}`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };
 
   const handleReddit = () => {
+    const shareUrl = addUtm(url, "reddit");
     const subreddit = "nyc";
-    const costSuffix = costRange ? ` — est. ${costRange}` : "";
-    const redditTitle = `${title} — ${neighborhood || "NYC"} (${daysOpen} days, ${stampCount} affected${costSuffix})`;
+    const costLead = costRange ? `${costRange} spent on ` : "";
+    const redditTitle = `${costLead}${title.toLowerCase()} in ${neighborhood || "NYC"} — open ${daysOpen} days, ${stampCount} affected. Here's the receipt.`;
     window.open(
-      `https://www.reddit.com/r/${subreddit}/submit?type=link&url=${encodeURIComponent(url)}&title=${encodeURIComponent(redditTitle)}`,
+      `https://www.reddit.com/r/${subreddit}/submit?type=link&url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(redditTitle)}`,
       "_blank",
       "noopener,noreferrer"
     );
   };
 
   const handleNativeShare = async () => {
+    const shareUrl = addUtm(url, "native");
     if (navigator.share) {
       try {
+        const costLead = costRange ? `${costRange} spent. ` : "";
         await navigator.share({
-          title,
-          text: `${title} — ${neighborhood || "NYC"}. ${affected}via @FatCatsApp #FatCatsNYC #PointExposeFix`,
-          url,
+          title: `${costLead}${title} — ${neighborhood || "NYC"}`,
+          text: `${costLead}${title} — ${neighborhood || "NYC"}. ${affected}Point. Expose. Fix.`,
+          url: shareUrl,
         });
       } catch {}
     } else {
@@ -107,13 +116,16 @@ export default function ShareSheet({
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(url);
+    const shareUrl = addUtm(url, "copy");
+    navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleWhatsApp = () => {
-    const text = `🚨 ${title} — ${neighborhood || "NYC"}. ${url} #FatCatsNYC`;
+    const shareUrl = addUtm(url, "whatsapp");
+    const costLead = costRange ? `${costRange} spent. ` : "";
+    const text = `${costLead}${title} — ${neighborhood || "NYC"}. ${shareUrl}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };
 

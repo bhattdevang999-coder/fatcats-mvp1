@@ -8,6 +8,7 @@ import { listReports, listNearbyReports } from "@/lib/reports";
 import { getPipelineIndex } from "@/lib/types";
 import { clusterReports } from "@/lib/feed-clustering";
 import { getFollowedReportIds } from "@/lib/follows";
+import { estimateRepairCost } from "@/lib/geo-intelligence";
 import type { Report } from "@/lib/types";
 import type { FeedItem } from "@/lib/feed-clustering";
 
@@ -94,6 +95,62 @@ function ClusterStatsBanner({ feedItems }: { feedItems: FeedItem[] }) {
           🔥 {criticalCount}
         </span>
       )}
+    </div>
+  );
+}
+
+// ── Hot Topics Bar ───────────────────────────────────────────────────
+
+function HotTopicsBar({ reports }: { reports: Report[] }) {
+  const hotReports = useMemo(() => {
+    return [...reports]
+      .filter((r) => getPipelineIndex(r.status) < 3)
+      .map((r) => {
+        const cost = estimateRepairCost(r.category);
+        const daysOpen = Math.max(1, Math.floor((Date.now() - new Date(r.created_at).getTime()) / 86400000));
+        const heat = (r.supporters_count + 1) * cost.avg * Math.log2(daysOpen + 1);
+        return { ...r, heat, costRange: cost.range, daysOpen };
+      })
+      .sort((a, b) => b.heat - a.heat)
+      .slice(0, 8);
+  }, [reports]);
+
+  if (hotReports.length === 0) return null;
+
+  return (
+    <div className="mb-4 -mx-4">
+      <div className="flex items-center gap-2 px-4 mb-2.5">
+        <span className="text-[14px]">🔥</span>
+        <h2 className="text-[13px] font-bold text-white uppercase tracking-wider">Hot Right Now</h2>
+      </div>
+      <div className="flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-2">
+        {hotReports.map((r) => (
+          <a
+            key={r.id}
+            href={`/expose/${r.id}`}
+            className="shrink-0 w-[220px] p-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:border-[var(--fc-orange)]/20 transition-all active:scale-[0.97] group"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[14px] font-bold text-[var(--fc-orange)]">{r.costRange}</span>
+              <span className="text-[10px] text-red-400 font-medium bg-red-500/10 px-1.5 py-0.5 rounded-md">
+                {r.daysOpen}d open
+              </span>
+            </div>
+            <p className="text-[12px] text-white font-medium leading-snug line-clamp-2 group-hover:text-[var(--fc-orange)] transition-colors">
+              {r.title}
+            </p>
+            <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--fc-muted)]">
+              <span>{r.neighborhood || "NYC"}</span>
+              {r.supporters_count > 0 && (
+                <>
+                  <span className="opacity-40">·</span>
+                  <span>🐾 {r.supporters_count}</span>
+                </>
+              )}
+            </div>
+          </a>
+        ))}
+      </div>
     </div>
   );
 }
@@ -298,6 +355,9 @@ export default function FeedPage() {
 
         {/* Since You Left banner */}
         {!loading && <SinceYouLeftBanner reports={reports} />}
+
+        {/* 🔥 Hot Topics — trending horizontal scroll */}
+        {!loading && tab === "trending" && <HotTopicsBar reports={reports} />}
 
         {/* Cluster stats summary */}
         {!loading && <ClusterStatsBanner feedItems={feedItems} />}
