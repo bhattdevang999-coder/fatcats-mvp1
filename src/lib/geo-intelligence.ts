@@ -16,6 +16,17 @@ import { getNeighborhoodFromLatLng } from "./device";
 // TYPES
 // ============================================================
 
+export interface NearbyReport {
+  id: string;
+  title: string;
+  category: string;
+  status: string;
+  neighborhood: string | null;
+  lat: number | null;
+  lng: number | null;
+  created_at: string;
+}
+
 export interface GeoIntelligence {
   // Location
   neighborhood: string;
@@ -30,6 +41,7 @@ export interface GeoIntelligence {
   nearbyCount: number;
   nearbyOpenCount: number;
   oldestOpenDays: number | null;
+  nearbyReports: NearbyReport[];
   
   // Cost intelligence
   estimatedCost: string | null;
@@ -259,6 +271,18 @@ export async function getFullGeoIntelligence(
   const costData = estimateRepairCost(category);
   const areaSpend = estimateAreaSpend(cluster.nearbyCount, category);
   
+  // Map nearby reports to lightweight NearbyReport type
+  const nearbyReports: NearbyReport[] = cluster.nearbyReports.map((r) => ({
+    id: r.id,
+    title: r.title,
+    category: r.category,
+    status: r.status,
+    neighborhood: r.neighborhood,
+    lat: r.lat,
+    lng: r.lng,
+    created_at: r.created_at,
+  }));
+
   return {
     neighborhood,
     nearestIntersection: geocode.intersection,
@@ -268,6 +292,7 @@ export async function getFullGeoIntelligence(
     nearbyCount: cluster.nearbyCount,
     nearbyOpenCount: cluster.nearbyOpenCount,
     oldestOpenDays: cluster.oldestOpenDays,
+    nearbyReports,
     estimatedCost: costData.estimated,
     categoryAvgCost: costData.range,
     totalAreaSpend: areaSpend,

@@ -72,15 +72,43 @@ body {
   background: var(--fc-surface);
   border: 1px solid var(--fc-glass-border);
   border-radius: 16px;
-  transition: background 0.2s ease, transform 0.15s ease;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
 }
 
 .glass-card:hover {
   background: var(--fc-glass-hover);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .glass-card:active {
   transform: scale(0.98);
+}
+
+/* Elevated glass card variant for intelligence/cost sections */
+.glass-card-elevated {
+  background: linear-gradient(135deg, var(--fc-surface) 0%, rgba(36, 43, 53, 0.8) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: all 0.25s ease;
+}
+
+.glass-card-elevated:hover {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Beta badge utility */
+.beta-badge {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.12);
+  color: rgba(245, 158, 11, 0.8);
+  border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
 /* Animations */
@@ -121,6 +149,24 @@ body {
   100% { background-position: 200% 0; }
 }
 
+/* Card entrance stagger — apply to feed cards */
+@keyframes cardEntrance {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Subtle float for intelligence cards */
+@keyframes subtleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+/* Beta badge pulse */
+@keyframes betaPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
 .animate-fade-in-up {
   animation: fadeInUp 0.6s ease-out forwards;
 }
@@ -143,6 +189,19 @@ body {
 
 .animate-heart-pop {
   animation: heartPop 0.35s ease-out;
+}
+
+.animate-card-entrance {
+  animation: cardEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.animate-float {
+  animation: subtleFloat 3s ease-in-out infinite;
+}
+
+.animate-beta-pulse {
+  animation: betaPulse 2s ease-in-out infinite;
 }
 
 .skeleton-shimmer {

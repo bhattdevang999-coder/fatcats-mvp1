@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import type { Report } from "@/lib/types";
 import { getPipelineIndex, getAgencyHandle, FLAVOR_REACTIONS } from "@/lib/types";
+import { estimateRepairCost } from "@/lib/geo-intelligence";
 import StatusPill from "./StatusPill";
 import { PipelineSteps } from "./StatusPill";
 
@@ -151,6 +152,7 @@ export default function ReportCard({ report }: { report: Report }) {
   const pipelineIdx = getPipelineIndex(report.status);
   const isVerified = pipelineIdx >= 4;
   const days = daysOpen(report.created_at);
+  const costData = estimateRepairCost(report.category);
 
   // FIX: Un-stamp toggle — allow removing stamp on second tap
   const handleStamp = useCallback((e: React.MouseEvent | React.TouchEvent) => {
@@ -210,13 +212,14 @@ export default function ReportCard({ report }: { report: Report }) {
     const url = `${window.location.origin}/expose/${report.id}`;
     const agencyHandle = getAgencyHandle(report.category);
     const affected = stampCount > 0 ? `${stampCount} people affected. ` : "";
-    const text = `🚨 ${report.title} — ${report.neighborhood || "NYC"}. Open ${days} days. ${affected}${agencyHandle} what's the plan?\n\n${url}\n#FatCatsNYC #PointExposeFix`;
+    const costLine = costData.range ? `Est. cost: ${costData.range}. ` : "";
+    const text = `🚨 ${report.title} — ${report.neighborhood || "NYC"}\n\nOpen ${days} days. ${affected}${costLine}\n${agencyHandle} what's the plan?\n\n${url}\n#FatCatsNYC #PointExposeFix`;
     window.open(
       `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
       "_blank",
       "noopener,noreferrer"
     );
-  }, [report, stampCount, days]);
+  }, [report, stampCount, days, costData.range]);
 
   // Post on Reddit
   const handlePostReddit = useCallback((e: React.MouseEvent) => {
@@ -249,7 +252,7 @@ export default function ReportCard({ report }: { report: Report }) {
 
   return (
     <Link href={`/expose/${report.id}`} className="block">
-      <div className="glass-card overflow-hidden animate-slide-up">
+      <div className="glass-card overflow-hidden animate-card-entrance" style={{ animationDelay: `${Math.random() * 0.15}s` }}>
         {/* Hero image */}
         <div className="w-full h-[180px] bg-[var(--fc-surface-2)] relative overflow-hidden">
           {heroSrc ? (
@@ -304,6 +307,14 @@ export default function ReportCard({ report }: { report: Report }) {
             <span>{timeAgo(report.created_at)}</span>
             <span className="opacity-40">·</span>
             <span>{report.source === "citizen" ? "Resident" : "311"}</span>
+          </div>
+          {/* Cost preview chip */}
+          <div className="flex items-center gap-2 mt-2">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/[0.06] text-[10px] text-[var(--fc-muted)]">
+              <span className="text-[10px]">💰</span>
+              {costData.range}
+              <span className="beta-badge ml-1" style={{ fontSize: '7px', padding: '1px 3px' }}>Beta</span>
+            </span>
           </div>
         </div>
 

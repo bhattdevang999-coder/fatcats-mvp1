@@ -300,6 +300,7 @@ export default function ExposeClient() {
   // Geo-intelligence state
   const [geoIntel, setGeoIntel] = useState<GeoIntelligence | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
+  const [showNearbyPanel, setShowNearbyPanel] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -523,25 +524,68 @@ export default function ExposeClient() {
           {(() => {
             const costData = estimateRepairCost(report.category);
             return (
-              <div className="glass-card p-4 space-y-3">
-                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                  <span className="text-[16px]">💰</span>
-                  Cost Intelligence
-                </h3>
+              <div className="glass-card-elevated p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                    <span className="text-[16px]">💰</span>
+                    Cost Intelligence
+                  </h3>
+                  <span className="beta-badge">Beta</span>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <span className="text-[11px] text-[var(--fc-muted)] block">Est. repair cost</span>
                     <span className="text-[15px] text-white font-bold">{costData.range}</span>
                     <span className="text-[11px] text-[var(--fc-muted)] block">{costData.unit}</span>
                   </div>
-                  {geoIntel?.totalAreaSpend && (
+                  {geoIntel && geoIntel.nearbyCount > 0 && (
                     <div>
                       <span className="text-[11px] text-[var(--fc-muted)] block">Area total spend</span>
                       <span className="text-[15px] text-white font-bold">{geoIntel.totalAreaSpend}</span>
-                      <span className="text-[11px] text-[var(--fc-muted)] block">{geoIntel.nearbyCount} issues nearby</span>
+                      <button
+                        onClick={() => setShowNearbyPanel(!showNearbyPanel)}
+                        className="text-[11px] text-[var(--fc-info)] hover:underline cursor-pointer block"
+                      >
+                        {geoIntel.nearbyCount} issues nearby →
+                      </button>
                     </div>
                   )}
                 </div>
+
+                {/* Nearby issues drilldown */}
+                {showNearbyPanel && geoIntel && (
+                  <div className="mt-2 space-y-2 pt-3 border-t border-white/[0.06]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-[var(--fc-muted)] font-semibold uppercase tracking-wider">Nearby Issues (within 3 blocks)</span>
+                      <button onClick={() => setShowNearbyPanel(false)} className="text-[10px] text-[var(--fc-muted)] hover:text-white">Close</button>
+                    </div>
+                    {geoIntel.nearbyReports && geoIntel.nearbyReports.length > 0 ? (
+                      geoIntel.nearbyReports.slice(0, 5).map((nr) => (
+                        <a
+                          key={nr.id}
+                          href={`/expose/${nr.id}`}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[12px] text-white font-medium block truncate">{nr.title}</span>
+                            <span className="text-[10px] text-[var(--fc-muted)]">
+                              {nr.neighborhood || "NYC"} · {nr.status === "fixed" || nr.status === "verified" ? "✅ Resolved" : `📍 ${nr.status.replace(/_/g, " ")}`}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-[var(--fc-muted)] shrink-0">
+                            {estimateRepairCost(nr.category).range}
+                          </span>
+                        </a>
+                      ))
+                    ) : (
+                      <p className="text-[11px] text-[var(--fc-muted)]">Nearby issue details loading...</p>
+                    )}
+                    {geoIntel.nearbyReports && geoIntel.nearbyReports.length > 5 && (
+                      <p className="text-[10px] text-[var(--fc-muted)] text-center">+ {geoIntel.nearbyReports.length - 5} more nearby</p>
+                    )}
+                  </div>
+                )}
+
                 {geoIntel?.isRepeatOffender && (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
                     <span className="text-[14px]">🔄</span>
@@ -557,6 +601,15 @@ export default function ExposeClient() {
                     <span className="text-[12px] text-amber-400">Oldest open issue nearby: <span className="font-semibold">{geoIntel.oldestOpenDays} days</span></span>
                   </div>
                 )}
+
+                {/* Source citation */}
+                <p className="text-[9px] text-[var(--fc-muted)] opacity-50 leading-snug">
+                  Estimates based on{" "}
+                  <a href="https://data.cityofnewyork.us/" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/50">NYC Open Data</a>,{" "}
+                  <a href="https://www.dot.ny.gov/" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/50">DOT</a>, and{" "}
+                  <a href="https://www.nyc.gov/site/dep/" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/50">DEP</a>{" "}
+                  public data averages. Actual costs may vary.
+                </p>
               </div>
             );
           })()}
@@ -625,14 +678,17 @@ export default function ExposeClient() {
 
           {/* Who's Responsible */}
           {hasLocation && (
-            <div className="glass-card p-4 space-y-3">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                  <circle cx="12" cy="9" r="2.5" />
-                </svg>
-                Who handles this
-              </h3>
+            <div className="glass-card-elevated p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                    <circle cx="12" cy="9" r="2.5" />
+                  </svg>
+                  Who handles this
+                </h3>
+                <span className="beta-badge">Beta</span>
+              </div>
               {(geoIntel?.neighborhood || report.neighborhood) && (
                 <p className="text-[13px] text-[var(--fc-muted)]">
                   This is in <span className="text-white font-medium">{geoIntel?.neighborhood || report.neighborhood}</span>
@@ -710,6 +766,9 @@ export default function ExposeClient() {
           createdAt={report.created_at}
           agencyHandle={getAgencyHandle(report.category)}
           councilMemberHandle={geoIntel?.councilMember?.twitterHandle || undefined}
+          costRange={estimateRepairCost(report.category).range}
+          totalAreaSpend={geoIntel?.totalAreaSpend || undefined}
+          nearbyCount={geoIntel?.nearbyCount}
           variant="sticky"
         />
 

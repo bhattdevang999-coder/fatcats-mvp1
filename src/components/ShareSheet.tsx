@@ -40,6 +40,9 @@ interface ShareSheetProps {
   createdAt: string;
   agencyHandle: string;
   councilMemberHandle?: string;
+  costRange?: string;
+  totalAreaSpend?: string;
+  nearbyCount?: number;
   variant?: "sticky" | "inline";
 }
 
@@ -53,6 +56,9 @@ export default function ShareSheet({
   createdAt,
   agencyHandle,
   councilMemberHandle,
+  costRange,
+  totalAreaSpend,
+  nearbyCount,
   variant = "inline",
 }: ShareSheetProps) {
   const [showMore, setShowMore] = useState(false);
@@ -63,13 +69,16 @@ export default function ShareSheet({
 
   const handleX = () => {
     const councilTag = councilMemberHandle ? ` ${councilMemberHandle}` : "";
-    const text = `🚨 ${title} — ${neighborhood || "NYC"}. Open ${daysOpen} days. ${affected}${agencyHandle}${councilTag} what's the plan?\n\n${url}\n#FatCatsNYC #PointExposeFix`;
+    const costLine = costRange ? `Est. cost: ${costRange}. ` : "";
+    const areaLine = totalAreaSpend && nearbyCount ? `${nearbyCount} issues nearby = ${totalAreaSpend} in taxpayer money. ` : "";
+    const text = `🚨 ${title} — ${neighborhood || "NYC"}\n\nOpen ${daysOpen} days. ${affected}${costLine}${areaLine}\n\n${agencyHandle}${councilTag} what's the plan?\n\n${url}\n#FatCatsNYC #PointExposeFix`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };
 
   const handleReddit = () => {
-    const subreddit = "nyc"; // default
-    const redditTitle = `${title} — ${neighborhood || "NYC"} (${daysOpen} days, ${stampCount} affected)`;
+    const subreddit = "nyc";
+    const costSuffix = costRange ? ` — est. ${costRange}` : "";
+    const redditTitle = `${title} — ${neighborhood || "NYC"} (${daysOpen} days, ${stampCount} affected${costSuffix})`;
     window.open(
       `https://www.reddit.com/r/${subreddit}/submit?type=link&url=${encodeURIComponent(url)}&title=${encodeURIComponent(redditTitle)}`,
       "_blank",

@@ -310,18 +310,20 @@ export default function ReportNewPage() {
             {classifying && (
               <div className="glass-card p-3 flex items-center gap-3 border border-[var(--fc-orange)]/20 bg-[var(--fc-orange)]/5">
                 <div className="w-5 h-5 border-2 border-[var(--fc-orange)] border-t-transparent rounded-full animate-spin shrink-0" />
-                <div>
+                <div className="flex-1">
                   <p className="text-[13px] text-white font-medium">Analyzing photo...</p>
                   <p className="text-[11px] text-[var(--fc-muted)]">AI is identifying the issue</p>
                 </div>
+                <span className="beta-badge">Beta</span>
               </div>
             )}
 
             {aiResult && !aiApplied && !classifying && (
-              <div className="glass-card p-4 space-y-3 border border-[var(--fc-orange)]/20 bg-[var(--fc-orange)]/5">
+              <div className="glass-card-elevated p-4 space-y-3 border border-[var(--fc-orange)]/20">
                 <div className="flex items-center gap-2">
                   <span className="text-[14px]">🤖</span>
                   <span className="text-[13px] font-semibold text-white">AI detected an issue</span>
+                  <span className="beta-badge">Beta</span>
                   <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full border font-semibold ${severityColor(aiResult.severity)}`}>
                     {aiResult.severity.toUpperCase()}
                   </span>
@@ -389,7 +391,10 @@ export default function ReportNewPage() {
               <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">
                 <span className="text-[16px]">💰</span>
                 <div className="flex-1">
-                  <span className="text-[12px] text-[var(--fc-muted)]">Est. repair cost</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] text-[var(--fc-muted)]">Est. repair cost</span>
+                    <span className="beta-badge">Beta</span>
+                  </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-[14px] text-white font-semibold">{costInfo.range}</span>
                     <span className="text-[11px] text-[var(--fc-muted)]">{costInfo.unit}</span>
@@ -449,7 +454,10 @@ export default function ReportNewPage() {
             {/* Geo-intelligence preview cards */}
             {(geoIntel || geoLoading) && (
               <div className="space-y-2">
+                <div className="flex items-center gap-2">
                 <span className="text-[11px] text-[var(--fc-muted)] uppercase tracking-wider font-semibold">Intelligence</span>
+                <span className="beta-badge">Beta</span>
+              </div>
                 {geoLoading ? (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
                     <div className="w-4 h-4 border-2 border-[var(--fc-orange)] border-t-transparent rounded-full animate-spin" />
@@ -573,7 +581,10 @@ export default function ReportNewPage() {
               </div>
               {costInfo && (
                 <div>
-                  <span className="text-[10px] text-[var(--fc-muted)] uppercase tracking-wider">Est. repair cost</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-[var(--fc-muted)] uppercase tracking-wider">Est. repair cost</span>
+                    <span className="beta-badge">Beta</span>
+                  </div>
                   <p className="text-[13px] text-white/70">{costInfo.range} {costInfo.unit}</p>
                 </div>
               )}
