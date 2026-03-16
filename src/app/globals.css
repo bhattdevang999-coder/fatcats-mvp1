@@ -177,6 +177,11 @@ body {
   50% { opacity: 1; }
 }
 
+@keyframes pulseSubtle {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.15); }
+  50% { box-shadow: 0 0 20px 4px rgba(239, 68, 68, 0.08); }
+}
+
 .animate-fade-in-up {
   animation: fadeInUp 0.6s ease-out forwards;
 }
@@ -212,6 +217,10 @@ body {
 
 .animate-beta-pulse {
   animation: betaPulse 2s ease-in-out infinite;
+}
+
+.animate-pulse-subtle {
+  animation: pulseSubtle 2s ease-in-out infinite;
 }
 
 .skeleton-shimmer {

@@ -225,12 +225,14 @@ export function estimateRepairCost(category: string): {
   estimated: string;
   range: string;
   unit: string;
+  avg: number;
 } {
   const cost = CATEGORY_COSTS[category] || CATEGORY_COSTS.other;
   return {
     estimated: `$${cost.avg.toLocaleString()}`,
     range: cost.range,
     unit: cost.unit,
+    avg: cost.avg,
   };
 }
 
