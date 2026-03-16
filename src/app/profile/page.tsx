@@ -1,31 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import StatusPill from "@/components/StatusPill";
 import { listReportsByDevice } from "@/lib/reports";
 import { getDeviceHash } from "@/lib/device";
+import {
+  getStreak,
+  getTotalVisits,
+  computeCivicScore,
+  computeBadges,
+} from "@/lib/engagement";
 import type { Report } from "@/lib/types";
-
-const IMPACT_LEVELS = [
-  { min: 0, label: "Newcomer", color: "#8B95A8" },
-  { min: 3, label: "Investigator", color: "#E8652B" },
-  { min: 10, label: "Watchdog", color: "#FF7A3D" },
-  { min: 25, label: "Legend", color: "#22C55E" },
-];
-
-const ACHIEVEMENTS = [
-  { icon: "🐱", label: "Founding Watchdog", unlocked: true, hint: "Joined during beta" },
-  { icon: "⚡", label: "Early Supporter", unlocked: true, hint: "Signed up early" },
-  { icon: "🔍", label: "Explorer", unlocked: true, hint: "Browsed 3+ issues" },
-  { icon: "📸", label: "First Exposé", unlocked: false, hint: "File your first exposé" },
-  { icon: "🔥", label: "Trending", unlocked: false, hint: "Get 50+ stamps on an exposé" },
-  { icon: "🏆", label: "100 Watchers", unlocked: false, hint: "Attract 100 total watchers" },
-  { icon: "✅", label: "Fixer", unlocked: false, hint: "Get an issue resolved" },
-  { icon: "🎯", label: "7-Day Streak", unlocked: false, hint: "Check in 7 days in a row" },
-];
 
 function timeAgo(dateStr: string): string {
   const now = Date.now();
@@ -47,9 +35,9 @@ export default function ProfilePage() {
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [displayName, setDisplayName] = useState("Founding Watchdog");
   const [bio, setBio] = useState("Keeping the city accountable");
-
-  // Simulated streak
-  const [streak] = useState(Math.floor(Math.random() * 5) + 1);
+  const [streak, setStreak] = useState(1);
+  const [showShareToast, setShowShareToast] = useState(false);
+  const impactCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function load() {
@@ -59,37 +47,43 @@ export default function ProfilePage() {
       setLoading(false);
     }
     load();
+    const s = getStreak();
+    setStreak(s.current);
   }, []);
 
   const totalWatchers = reports.reduce((sum, r) => sum + r.supporters_count, 0);
   const fixedCount = reports.filter((r) => r.status === "fixed").length;
-  const totalReactions = reports.length * 3; // simulated
+  const visits = getTotalVisits();
 
-  // Impact score — give base points so cold start isn't zero
-  const basePoints = 5; // Explorer + Early Supporter + Founding Watchdog
-  const score = basePoints + reports.length + totalWatchers + fixedCount * 5;
-  const currentLevel = [...IMPACT_LEVELS].reverse().find((l) => score >= l.min) || IMPACT_LEVELS[0];
-  const nextLevel = IMPACT_LEVELS[IMPACT_LEVELS.indexOf(currentLevel) + 1];
-  const progress = nextLevel
-    ? Math.min(100, ((score - currentLevel.min) / (nextLevel.min - currentLevel.min)) * 100)
-    : 100;
-
-  // Unlock achievements dynamically
-  const achievements = ACHIEVEMENTS.map((a) => {
-    if (a.label === "First Exposé" && reports.length > 0) return { ...a, unlocked: true };
-    if (a.label === "Fixer" && fixedCount > 0) return { ...a, unlocked: true };
-    if (a.label === "100 Watchers" && totalWatchers >= 100) return { ...a, unlocked: true };
-    if (a.label === "Trending" && reports.some((r) => r.supporters_count >= 50)) return { ...a, unlocked: true };
-    if (a.label === "7-Day Streak" && streak >= 7) return { ...a, unlocked: true };
-    return a;
+  // Civic score
+  const civic = computeCivicScore({
+    reports: reports.length,
+    watchers: totalWatchers,
+    fixed: fixedCount,
+    streak,
+    visits,
   });
 
+  // Badges
+  const badges = computeBadges({
+    reports: reports.length,
+    watchers: totalWatchers,
+    fixed: fixedCount,
+    streak,
+    visits,
+    score: civic.score,
+  });
+
+  const unlockedCount = badges.filter((b) => b.unlocked).length;
+
   const handleShare = () => {
-    const text = "I'm holding my city accountable on FatCats. Join me → fatcatsapp.com";
+    const text = `I'm holding my city accountable on FatCats.\n\n🔥 ${streak}-day streak\n📸 ${reports.length} exposés filed\n👁️ ${totalWatchers} people watching\n⭐ ${civic.score} civic score (${civic.level})\n\nJoin me → fatcatsapp.com`;
     if (navigator.share) {
-      navigator.share({ title: "Join FatCats", text, url: "https://fatcatsapp.com" }).catch(() => {});
+      navigator.share({ title: "My FatCats Impact", text, url: "https://fatcatsapp.com" }).catch(() => {});
     } else {
-      navigator.clipboard.writeText("https://fatcatsapp.com");
+      navigator.clipboard.writeText(text);
+      setShowShareToast(true);
+      setTimeout(() => setShowShareToast(false), 2000);
     }
   };
 
@@ -118,6 +112,21 @@ export default function ProfilePage() {
           <p className="text-[13px] text-[var(--fc-muted)]">
             {bio}
           </p>
+          <div className="flex items-center justify-center gap-2 mt-2">
+            <span
+              className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+              style={{
+                color: civic.levelColor,
+                background: `${civic.levelColor}15`,
+                border: `1px solid ${civic.levelColor}25`,
+              }}
+            >
+              {civic.level}
+            </span>
+            <span className="text-[11px] text-[var(--fc-muted)]">
+              · {civic.score} pts
+            </span>
+          </div>
         </div>
 
         {/* Edit profile panel */}
@@ -150,7 +159,90 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Watchdog Streak */}
+        {/* ── Shareable Impact Card (Spotify Wrapped style) ── */}
+        <div ref={impactCardRef} className="mb-5">
+          <div className="relative overflow-hidden rounded-2xl border border-[var(--fc-orange)]/15">
+            {/* Gradient background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[var(--fc-orange)]/10 via-[var(--fc-surface)] to-purple-500/5" />
+            <div className="relative px-5 py-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Image src="/assets/logo-64.png" alt="" width={20} height={20} />
+                <span className="text-[10px] font-bold text-[var(--fc-muted)] uppercase tracking-widest">
+                  Your Civic Footprint
+                </span>
+              </div>
+
+              {/* Big stats row */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="text-center">
+                  <span className="text-3xl font-bold text-white block leading-none">{reports.length}</span>
+                  <span className="text-[10px] text-[var(--fc-muted)] uppercase tracking-wider mt-1 block">Exposés</span>
+                </div>
+                <div className="text-center">
+                  <span className="text-3xl font-bold text-[var(--fc-info)] block leading-none">{totalWatchers}</span>
+                  <span className="text-[10px] text-[var(--fc-muted)] uppercase tracking-wider mt-1 block">Watchers</span>
+                </div>
+                <div className="text-center">
+                  <span className="text-3xl font-bold text-[var(--fc-success)] block leading-none">{fixedCount}</span>
+                  <span className="text-[10px] text-[var(--fc-muted)] uppercase tracking-wider mt-1 block">Fixed</span>
+                </div>
+              </div>
+
+              {/* Streak + badges row */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/15">
+                  <span className="text-[13px]">🔥</span>
+                  <span className="text-[14px] font-bold text-amber-400">{streak}</span>
+                  <span className="text-[11px] text-amber-400/70">day streak</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/15">
+                  <span className="text-[13px]">🏅</span>
+                  <span className="text-[14px] font-bold text-purple-400">{unlockedCount}/{badges.length}</span>
+                  <span className="text-[11px] text-purple-400/70">badges</span>
+                </div>
+              </div>
+
+              {/* Civic score progress */}
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-semibold text-white">Civic Score</span>
+                  <span className="text-[11px] font-bold" style={{ color: civic.levelColor }}>
+                    {civic.score} pts · {civic.level}
+                  </span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-[var(--fc-surface-2)] overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${Math.max(civic.progress, 8)}%`,
+                      background: `linear-gradient(90deg, ${civic.levelColor}, ${civic.levelColor}88)`,
+                    }}
+                  />
+                </div>
+                {civic.nextLevel && (
+                  <p className="text-[10px] text-[var(--fc-muted)] mt-1">
+                    {civic.pointsToNext} more to <span className="text-white font-medium">{civic.nextLevel}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Share CTA */}
+              <button
+                onClick={handleShare}
+                className="w-full flex items-center justify-center gap-2 h-10 rounded-xl bg-[var(--fc-orange)]/15 border border-[var(--fc-orange)]/20 text-[var(--fc-orange)] text-[13px] font-semibold hover:bg-[var(--fc-orange)]/20 transition-colors active:scale-[0.98]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                  <polyline points="16 6 12 2 8 6" />
+                  <line x1="12" y1="2" x2="12" y2="15" />
+                </svg>
+                Share your civic footprint
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Watchdog Streak — detailed view */}
         <div className="glass-card p-4 mb-5 flex items-center gap-4 border border-amber-500/10">
           <div className="text-3xl">🔥</div>
           <div className="flex-1">
@@ -158,68 +250,17 @@ export default function ProfilePage() {
               Day {streak} Streak
             </p>
             <p className="text-[11px] text-[var(--fc-muted)]">
-              Keep watching your city daily
+              Browsing, stamping, or verifying all count
             </p>
           </div>
           <div className="flex gap-0.5">
             {[1, 2, 3, 4, 5, 6, 7].map((d) => (
               <div
                 key={d}
-                className={`w-3 h-3 rounded-sm ${d <= streak ? "bg-amber-400" : "bg-white/10"}`}
+                className={`w-3 h-3 rounded-sm ${d <= (streak % 7 || 7) ? "bg-amber-400" : "bg-white/10"}`}
               />
             ))}
           </div>
-        </div>
-
-        {/* 4 stat cards */}
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          <div className="glass-card p-4 text-center">
-            <span className="text-2xl font-bold text-[var(--fc-orange)] block">{reports.length}</span>
-            <span className="text-[11px] text-[var(--fc-muted)] uppercase tracking-wider">Exposés</span>
-          </div>
-          <div className="glass-card p-4 text-center">
-            <span className="text-2xl font-bold text-[var(--fc-info)] block">{totalWatchers}</span>
-            <span className="text-[11px] text-[var(--fc-muted)] uppercase tracking-wider">Watchers</span>
-          </div>
-          <div className="glass-card p-4 text-center">
-            <span className="text-2xl font-bold text-[var(--fc-success)] block">{fixedCount}</span>
-            <span className="text-[11px] text-[var(--fc-muted)] uppercase tracking-wider">Fixed</span>
-          </div>
-          <div className="glass-card p-4 text-center">
-            <span className="text-2xl font-bold text-amber-400 block">{totalReactions}</span>
-            <span className="text-[11px] text-[var(--fc-muted)] uppercase tracking-wider">Reactions</span>
-          </div>
-        </div>
-
-        {/* Impact score */}
-        <div className="glass-card p-4 mb-5 animate-slide-up">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[12px] font-semibold text-white">Impact Score</span>
-            <span className="text-[12px] font-semibold" style={{ color: currentLevel.color }}>
-              {currentLevel.label}
-            </span>
-          </div>
-          <div className="w-full h-2.5 rounded-full bg-[var(--fc-surface-2)] overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-700"
-              style={{
-                width: `${Math.max(progress, 10)}%`,
-                background: `linear-gradient(90deg, ${currentLevel.color}, ${nextLevel?.color || currentLevel.color})`,
-              }}
-            />
-          </div>
-          {nextLevel ? (
-            <p className="text-[11px] text-[var(--fc-muted)] mt-1.5">
-              <span className="text-white font-semibold">{score} pts</span> — {nextLevel.min - score} more to {nextLevel.label}
-            </p>
-          ) : (
-            <p className="text-[11px] text-[var(--fc-muted)] mt-1.5">
-              <span className="text-white font-semibold">{score} pts</span> — Max level reached
-            </p>
-          )}
-          <p className="text-[9px] text-[var(--fc-muted)] mt-1 opacity-60">
-            Earn points: File exposés (+1), Get watchers (+1 each), Get issues fixed (+5)
-          </p>
         </div>
 
         {/* Achievement badges */}
@@ -228,9 +269,9 @@ export default function ProfilePage() {
             Badges
           </h2>
           <div className="grid grid-cols-4 gap-3">
-            {achievements.map((a) => (
+            {badges.map((a) => (
               <div
-                key={a.label}
+                key={a.id}
                 className={`flex flex-col items-center gap-1.5 ${
                   a.unlocked ? "" : "opacity-30"
                 }`}
@@ -254,8 +295,8 @@ export default function ProfilePage() {
           <div className="flex items-center gap-3">
             <div className="text-2xl">📣</div>
             <div className="flex-1">
-              <p className="text-[13px] font-semibold text-white">Invite a neighbor</p>
-              <p className="text-[11px] text-[var(--fc-muted)]">Share FatCats with your block. Both earn 50 XP.</p>
+              <p className="text-[13px] font-semibold text-white">Recruit a watchdog</p>
+              <p className="text-[11px] text-[var(--fc-muted)]">More watchdogs = more accountability. Spread the word.</p>
             </div>
             <button
               onClick={handleShare}
@@ -268,7 +309,7 @@ export default function ProfilePage() {
 
         {/* Recent activity */}
         <h2 className="text-[13px] font-semibold text-white/60 uppercase tracking-wider mb-3">
-          Recent activity
+          Your exposés
         </h2>
 
         {loading ? (
@@ -289,13 +330,13 @@ export default function ProfilePage() {
               No exposés yet
             </p>
             <p className="text-[var(--fc-muted)] text-sm mb-4">
-              File your first to start building your watchdog profile.
+              Spot something broken? You&apos;re the investigator now.
             </p>
             <Link
               href="/report/new"
               className="inline-flex h-10 items-center px-5 rounded-xl bg-[var(--fc-orange)] hover:bg-[var(--fc-orange-hover)] text-white text-[13px] font-semibold transition-all active:scale-95"
             >
-              File your first
+              File your first exposé
             </Link>
           </div>
         ) : (
@@ -333,9 +374,16 @@ export default function ProfilePage() {
 
         {/* Footer */}
         <p className="text-[11px] text-[var(--fc-muted)] text-center mt-8 pb-2">
-          We&apos;re just getting started. You&apos;re early.
+          Every exposé matters. You&apos;re early to something that changes everything.
         </p>
       </div>
+
+      {/* Share toast */}
+      {showShareToast && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 bg-[var(--fc-surface)]/90 backdrop-blur-xl border border-white/10 text-white text-sm px-5 py-2.5 rounded-xl animate-slide-up z-[60] shadow-xl">
+          Copied to clipboard
+        </div>
+      )}
     </AppShell>
   );
 }

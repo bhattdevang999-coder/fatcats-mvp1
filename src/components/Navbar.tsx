@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { registerServiceWorker, requestPushPermission } from "@/lib/notifications";
+import { getStreak } from "@/lib/engagement";
 
 function BellIcon({ enabled }: { enabled: boolean }) {
   return (
@@ -20,6 +21,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [showToast, setShowToast] = useState<string | null>(null);
+  const [streak, setStreak] = useState(0);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -27,12 +29,14 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Register SW on mount
+  // Register SW on mount + load streak
   useEffect(() => {
     registerServiceWorker();
     if ("Notification" in window && Notification.permission === "granted") {
       setNotifEnabled(true);
     }
+    const s = getStreak();
+    setStreak(s.current);
   }, []);
 
   const handleBell = useCallback(async () => {
@@ -76,15 +80,30 @@ export default function Navbar() {
             </span>
           </Link>
 
-          <button
-            onClick={handleBell}
-            className={`w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white/5 transition-colors active:scale-90 relative ${notifEnabled ? "bg-[var(--fc-orange)]/10" : ""}`}
-          >
-            <BellIcon enabled={notifEnabled} />
-            {notifEnabled && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--fc-orange)]" />
+          <div className="flex items-center gap-1.5">
+            {/* Watchdog Streak pill */}
+            {streak > 0 && (
+              <Link
+                href="/profile"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/15 hover:bg-amber-500/15 transition-colors active:scale-95"
+              >
+                <span className="text-[12px]">🔥</span>
+                <span className="text-[12px] font-bold text-amber-400">
+                  {streak}
+                </span>
+              </Link>
             )}
-          </button>
+
+            <button
+              onClick={handleBell}
+              className={`w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white/5 transition-colors active:scale-90 relative ${notifEnabled ? "bg-[var(--fc-orange)]/10" : ""}`}
+            >
+              <BellIcon enabled={notifEnabled} />
+              {notifEnabled && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--fc-orange)]" />
+              )}
+            </button>
+          </div>
         </nav>
       </header>
 

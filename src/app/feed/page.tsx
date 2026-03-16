@@ -5,6 +5,7 @@ import AppShell from "@/components/AppShell";
 import ReportCard from "@/components/ReportCard";
 import ClusterCard from "@/components/ClusterCard";
 import NearbyAlertBanner from "@/components/NearbyAlert";
+import SinceYouLeftBanner from "@/components/SinceYouLeft";
 import { listReports, listNearbyReports } from "@/lib/reports";
 import { getPipelineIndex } from "@/lib/types";
 import { clusterReports, checkNearbyAlerts } from "@/lib/feed-clustering";
@@ -16,7 +17,7 @@ type FilterKey = "all" | "open" | "in_progress" | "resolved" | "verify";
 
 const FEED_TABS: { key: FeedTab; label: string }[] = [
   { key: "trending", label: "Trending" },
-  { key: "near", label: "Near You" },
+  { key: "near", label: "Your Block" },
   { key: "following", label: "Following" },
 ];
 
@@ -294,6 +295,9 @@ export default function FeedPage() {
           />
         )}
 
+        {/* Since You Left banner */}
+        {!loading && <SinceYouLeftBanner reports={reports} />}
+
         {/* Cluster stats summary */}
         {!loading && <ClusterStatsBanner feedItems={feedItems} />}
 
@@ -333,18 +337,18 @@ export default function FeedPage() {
             </div>
             <p className="text-white text-[15px] font-semibold mb-1">
               {filter === "verify"
-                ? "No reports to verify"
+                ? "Nothing to verify yet"
                 : filter === "resolved"
-                ? "No resolved reports yet"
+                ? "No fixes confirmed yet"
                 : filter === "in_progress"
-                ? "Nothing in progress right now"
+                ? "No active investigations"
                 : filter === "open"
-                ? "No open reports"
-                : "No reports found"}
+                ? "No open cases"
+                : "Intel feed is quiet"}
             </p>
             <p className="text-[var(--fc-muted)] text-sm">
               {filter === "all"
-                ? "Be the first to file an exposé."
+                ? "Spot something broken? You're the investigator now."
                 : "Try a different filter or check back later."}
             </p>
           </div>
