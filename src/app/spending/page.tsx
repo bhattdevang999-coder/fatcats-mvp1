@@ -6,6 +6,7 @@ import Image from "next/image";
 import AppShell from "@/components/AppShell";
 import { IntelLogo, FatCatsIntelBadge } from "@/components/FatCatsIntel";
 import FollowButton from "@/components/FollowButton";
+import { ReactionBar, CommentCountBadge } from "@/components/CommunityEngagement";
 import {
   fetchTrackedProjects,
   getContractStats,
@@ -193,6 +194,12 @@ function ProjectCard({ project, index }: { project: TrackedProject; index: numbe
             Slipped {formatDays(project.schedule_slip_days)}
           </span>
         )}
+      </div>
+
+      {/* Community activity indicators */}
+      <div className="flex items-center gap-3 mb-2">
+        <ReactionBar itemId={`project_${project.fms_id}`} compact />
+        <CommentCountBadge itemId={`project_${project.fms_id}`} />
       </div>
 
       {/* Sparkline + Actions */}

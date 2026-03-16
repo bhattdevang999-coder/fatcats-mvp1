@@ -4,6 +4,8 @@
 // "Be the first Block Watchdog for your neighborhood"
 // ============================================================
 
+export const FOUNDING_LIMIT = 15; // First N per neighborhood get founding badge
+
 export type WatchdogLevel = "watchdog" | "captain" | "lead";
 
 export interface WatchdogProfile {

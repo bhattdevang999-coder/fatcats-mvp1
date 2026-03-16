@@ -15,6 +15,7 @@ import type { GeoIntelligence } from "@/lib/geo-intelligence";
 import { IntelLogo } from "@/components/FatCatsIntel";
 import FollowButton from "@/components/FollowButton";
 import { hasSeenFollowNudge, markFollowNudgeSeen } from "@/lib/follows";
+import { ReactionBar, CommentSection, CommentCountBadge } from "@/components/CommunityEngagement";
 import Image from "next/image";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -56,13 +57,7 @@ function PawIcon({ size = 20, color = "currentColor" }: { size?: number; color?:
   );
 }
 
-const MOCK_COMMENTS = [
-  { id: "c1", user: "watchdog_bk", avatar: "🐱", text: "Saw this on my way to work. Insane that it's been like this for weeks.", time: "2h ago", replies: [
-    { user: "nyc_fixer", avatar: "🔧", text: "Same. I walk past this every day.", time: "1h ago" },
-  ] },
-  { id: "c2", user: "nyc_fixer", avatar: "🔧", text: "Called 311 about this twice already. No response.", time: "5h ago", replies: [] },
-  { id: "c3", user: "street_eye", avatar: "👁️", text: "Same issue on the next block too. Whole area is neglected.", time: "1d ago", replies: [] },
-];
+// Comments now powered by CommunityEngagement component
 
 function BackIcon() {
   return (
@@ -220,64 +215,7 @@ function FlavorPopover({
   );
 }
 
-// Comment with threading
-function CommentThread({ comment, depth = 0 }: { comment: typeof MOCK_COMMENTS[0]; depth?: number }) {
-  const [showReplyInput, setShowReplyInput] = useState(false);
-  const [expanded, setExpanded] = useState(true);
-
-  return (
-    <div className={depth > 0 ? "ml-8 pl-3 border-l border-white/[0.06]" : ""}>
-      <div className="flex gap-3">
-        <div className="w-8 h-8 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center shrink-0 text-[14px]">{comment.avatar}</div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-[12px] font-semibold text-white">{comment.user}</span>
-            <span className="text-[10px] text-[var(--fc-muted)]">{comment.time}</span>
-          </div>
-          <p className="text-[13px] text-white/70 mt-0.5 leading-snug">{comment.text}</p>
-          <div className="flex items-center gap-3 mt-1.5">
-            <button
-              onClick={() => setShowReplyInput(!showReplyInput)}
-              className="text-[10px] text-[var(--fc-muted)] hover:text-[var(--fc-orange)] transition-colors font-medium"
-            >
-              Reply
-            </button>
-            {comment.replies && comment.replies.length > 0 && (
-              <button
-                onClick={() => setExpanded(!expanded)}
-                className="text-[10px] text-[var(--fc-muted)] hover:text-white transition-colors"
-              >
-                {expanded ? "Hide" : `Show ${comment.replies.length}`} {comment.replies.length === 1 ? "reply" : "replies"}
-              </button>
-            )}
-          </div>
-          {showReplyInput && (
-            <div className="flex items-center gap-2 mt-2">
-              <div className="flex-1 h-8 rounded-full bg-[var(--fc-surface-2)] border border-white/[0.06] flex items-center px-3">
-                <span className="text-[11px] text-[var(--fc-muted)]">Reply to {comment.user}...</span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      {/* Replies */}
-      {expanded && comment.replies && comment.replies.map((reply, i) => (
-        <div key={i} className="mt-3 ml-8 pl-3 border-l border-white/[0.06]">
-          <div className="flex gap-3">
-            <div className="w-6 h-6 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center shrink-0 text-[11px]">{reply.avatar}</div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold text-white">{reply.user}</span>
-                <span className="text-[10px] text-[var(--fc-muted)]">{reply.time}</span>
-              </div>
-              <p className="text-[12px] text-white/70 mt-0.5 leading-snug">{reply.text}</p>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+// CommentThread replaced by CommunityEngagement CommentSection
 
 export default function ExposeClient() {
   const params = useParams();
@@ -535,6 +473,8 @@ export default function ExposeClient() {
               {report.neighborhood && <span className="text-[var(--fc-info)] font-medium">{report.neighborhood}</span>}
               <span className="text-[var(--fc-muted)] opacity-40">·</span>
               <span className="text-[var(--fc-muted)]">{timeAgo(report.created_at)}</span>
+              <span className="text-[var(--fc-muted)] opacity-40">·</span>
+              <CommentCountBadge itemId={report.id} />
             </div>
           </div>
 
@@ -828,38 +768,25 @@ export default function ExposeClient() {
             </div>
           )}
 
+          {/* Community Reactions — visible breakdown */}
+          <ReactionBar itemId={report.id} />
+
           {/* Comments with threading */}
-          <div className="space-y-3">
-            <h3 className="text-[13px] font-semibold text-white/60 uppercase tracking-wider">Comments</h3>
-            <div className="space-y-4">
-              {MOCK_COMMENTS.map((c) => (
-                <CommentThread key={c.id} comment={c} />
-              ))}
-            </div>
-            <div className="flex items-center gap-2 pt-2">
-              <div className="w-8 h-8 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center shrink-0">
-                <Image src="/assets/logo-32.png" alt="" width={18} height={18} className="opacity-60" />
-              </div>
-              <div className="flex-1 h-9 rounded-full bg-[var(--fc-surface-2)] border border-white/[0.06] flex items-center px-3">
-                <span className="text-[12px] text-[var(--fc-muted)]">Add a comment...</span>
-              </div>
-            </div>
-          </div>
+          <CommentSection itemId={report.id} maxVisible={3} />
 
           <p className="text-[11px] text-[var(--fc-muted)] text-center pb-2">
             Every exposé is a receipt. Thanks for helping your city.
           </p>
         </div>
 
-        {/* Follow nudge banner — slides up after 3s for first-time visitors */}
+        {/* Follow nudge — compact floating pill on right side */}
         {showFollowNudge && (
-          <div className="fixed bottom-[120px] left-0 right-0 z-50 flex justify-center px-4 animate-slide-up">
-            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-[var(--fc-surface)]/95 backdrop-blur-xl border border-[var(--fc-orange)]/20 shadow-xl max-w-md w-full">
-              <span className="text-[13px] text-white font-medium flex-1">Follow this exposé for updates</span>
+          <div className="fixed right-3 top-1/2 -translate-y-1/2 z-50 animate-slide-up">
+            <div className="flex flex-col items-center gap-2 px-2 py-3 rounded-2xl bg-[var(--fc-surface)]/95 backdrop-blur-xl border border-white/[0.1] shadow-xl">
               <FollowButton kind="report" id={report.id} variant="compact" />
               <button
                 onClick={() => { setShowFollowNudge(false); markFollowNudgeSeen(); }}
-                className="text-[var(--fc-muted)] hover:text-white transition-colors text-xs"
+                className="text-[var(--fc-muted)] hover:text-white transition-colors text-[9px]"
               >
                 ✕
               </button>

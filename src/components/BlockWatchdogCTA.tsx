@@ -11,6 +11,7 @@ import {
   addWatchdogInvite,
   getRecruitShareText,
   NYC_NEIGHBORHOODS,
+  FOUNDING_LIMIT,
 } from "@/lib/watchdog";
 import type { WatchdogProfile } from "@/lib/watchdog";
 
@@ -31,6 +32,7 @@ export function BlockWatchdogClaimCTA({
   const [customNeighborhood, setCustomNeighborhood] = useState("");
   const [showPicker, setShowPicker] = useState(false);
   const [claimed, setClaimed] = useState(false);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
 
   useEffect(() => {
     const p = getWatchdogProfile();
@@ -111,6 +113,55 @@ export function BlockWatchdogClaimCTA({
         </div>
       </div>
 
+      {/* How It Works button */}
+      <button
+        onClick={() => setShowHowItWorks(!showHowItWorks)}
+        className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[12px] text-[var(--fc-muted)] hover:text-white hover:bg-white/[0.06] transition-all"
+      >
+        <span className="text-[13px]">❓</span>
+        <span className="font-medium">How does Block Watchdog work?</span>
+        <span className={`text-[10px] transition-transform ${showHowItWorks ? "rotate-180" : ""}`}>▾</span>
+      </button>
+
+      {/* How It Works explainer (expandable) */}
+      {showHowItWorks && (
+        <div className="space-y-3 px-1 animate-fade-in">
+          <div className="flex items-start gap-2.5">
+            <div className="w-6 h-6 rounded-full bg-[var(--fc-orange)]/10 flex items-center justify-center text-[11px] shrink-0 mt-0.5">1</div>
+            <div>
+              <p className="text-[12px] text-white font-semibold">Claim your block</p>
+              <p className="text-[11px] text-[var(--fc-muted)] leading-snug">First {FOUNDING_LIMIT} people per neighborhood get a permanent Founding Watchdog badge.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2.5">
+            <div className="w-6 h-6 rounded-full bg-[var(--fc-orange)]/10 flex items-center justify-center text-[11px] shrink-0 mt-0.5">2</div>
+            <div>
+              <p className="text-[12px] text-white font-semibold">Report issues you see</p>
+              <p className="text-[11px] text-[var(--fc-muted)] leading-snug">Snap photos, document problems. Every exposé builds your block&apos;s accountability record.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2.5">
+            <div className="w-6 h-6 rounded-full bg-[var(--fc-orange)]/10 flex items-center justify-center text-[11px] shrink-0 mt-0.5">3</div>
+            <div>
+              <p className="text-[12px] text-white font-semibold">Recruit your neighbors</p>
+              <p className="text-[11px] text-[var(--fc-muted)] leading-snug">Invite 3 people → Block Captain. 10 exposés + 5 invites → Neighborhood Lead.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2.5">
+            <div className="w-6 h-6 rounded-full bg-[var(--fc-orange)]/10 flex items-center justify-center text-[11px] shrink-0 mt-0.5">4</div>
+            <div>
+              <p className="text-[12px] text-white font-semibold">Amplify together</p>
+              <p className="text-[11px] text-[var(--fc-muted)] leading-snug">More watchdogs = louder voice. Officials pay attention when neighborhoods organize.</p>
+            </div>
+          </div>
+          <div className="px-3 py-2 rounded-lg bg-[var(--fc-orange)]/5 border border-[var(--fc-orange)]/10">
+            <p className="text-[10px] text-[var(--fc-orange)] font-medium text-center">
+              🏆 First {FOUNDING_LIMIT} watchdogs per block get a founding badge that can never be taken away
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Claim button */}
       {detectedNeighborhood && !showPicker ? (
         <div className="space-y-2">
@@ -164,8 +215,77 @@ export function BlockWatchdogClaimCTA({
 
       {/* Social proof */}
       <p className="text-[11px] text-[var(--fc-muted)] text-center">
-        First watchdog for your block = founding badge forever. Can&apos;t be taken away.
+        First {FOUNDING_LIMIT} watchdogs per block = founding badge forever. Can&apos;t be taken away.
       </p>
+    </div>
+  );
+}
+
+// ── Inline Claim CTA for empty states (compact) ───────────────
+
+export function InlineClaimCTA({ detectedNeighborhood }: { detectedNeighborhood?: string | null }) {
+  const [profile, setProfile] = useState<WatchdogProfile | null>(null);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+
+  useEffect(() => {
+    const p = getWatchdogProfile();
+    if (p) setProfile(p);
+  }, []);
+
+  if (profile) return null;
+
+  const neighborhoodName = detectedNeighborhood || "your block";
+
+  const handleClaim = (name: string) => {
+    const p = claimBlockWatchdog(name);
+    setProfile(p);
+    setTimeout(() => {
+      const text = getClaimShareText(name);
+      if (navigator.share) {
+        navigator.share({ title: `Block Watchdog — ${name}`, text }).catch(() => {});
+      } else {
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank");
+      }
+    }, 600);
+  };
+
+  return (
+    <div className="space-y-3 animate-fade-in">
+      {/* Prominent claim button */}
+      <button
+        onClick={() => handleClaim(neighborhoodName)}
+        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[var(--fc-orange)] to-[#ff8c5a] text-white text-[14px] font-bold shadow-[0_4px_20px_rgba(232,101,43,0.3)] hover:shadow-[0_4px_30px_rgba(232,101,43,0.5)] transition-all active:scale-[0.97]"
+      >
+        🔍 Claim {neighborhoodName} — Be the first watchdog
+      </button>
+
+      {/* How it works toggle */}
+      <button
+        onClick={() => setShowHowItWorks(!showHowItWorks)}
+        className="w-full text-center text-[12px] text-[var(--fc-muted)] hover:text-[var(--fc-orange)] transition-colors font-medium"
+      >
+        {showHowItWorks ? "Hide details ▴" : "How does this work? ▾"}
+      </button>
+
+      {showHowItWorks && (
+        <div className="glass-card p-4 space-y-2.5 animate-fade-in">
+          <div className="flex items-center gap-2">
+            <span className="text-[12px]">🔍</span>
+            <span className="text-[11px] text-white font-semibold">Claim → Report → Recruit → Lead</span>
+          </div>
+          <p className="text-[11px] text-[var(--fc-muted)] leading-snug">
+            Be the first to claim your block. Report issues you see. Recruit {3} neighbors to become Block Captain.
+            First {FOUNDING_LIMIT} per neighborhood get a permanent founding badge.
+          </p>
+          <div className="flex items-center gap-3 text-[10px] text-[var(--fc-muted)]">
+            <span>🔍 Watchdog</span>
+            <span className="text-white/20">→</span>
+            <span>⭐ Captain (3 invites)</span>
+            <span className="text-white/20">→</span>
+            <span>🏆 Lead (10 exposés + 5 invites)</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

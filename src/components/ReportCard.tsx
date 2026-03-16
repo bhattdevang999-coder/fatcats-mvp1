@@ -8,6 +8,7 @@ import { estimateRepairCost } from "@/lib/geo-intelligence";
 import StatusPill from "./StatusPill";
 import { PipelineSteps } from "./StatusPill";
 import FollowButton from "./FollowButton";
+import { ReactionBar, CommentCountBadge } from "./CommunityEngagement";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -325,6 +326,12 @@ export default function ReportCard({ report }: { report: Report }) {
             <ContractorBadge name={report.contractor_name} />
           </div>
         )}
+
+        {/* Community activity: compact reactions + comment count */}
+        <div className="flex items-center gap-3 px-3.5 pb-1">
+          <ReactionBar itemId={report.id} compact />
+          <CommentCountBadge itemId={report.id} />
+        </div>
 
         {/* Action bar: Paw Stamp + X + Reddit + Share */}
         <div className="flex items-center gap-2 px-3.5 py-2.5 border-t border-white/[0.04]">

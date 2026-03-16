@@ -9,7 +9,7 @@ import { getPipelineIndex } from "@/lib/types";
 import { clusterReports } from "@/lib/feed-clustering";
 import { getFollowedReportIds } from "@/lib/follows";
 import { estimateRepairCost } from "@/lib/geo-intelligence";
-import { BlockWatchdogClaimCTA, NeighborhoodLeaderboard } from "@/components/BlockWatchdogCTA";
+import { BlockWatchdogClaimCTA, InlineClaimCTA, NeighborhoodLeaderboard } from "@/components/BlockWatchdogCTA";
 import type { Report } from "@/lib/types";
 import type { FeedItem } from "@/lib/feed-clustering";
 
@@ -433,7 +433,7 @@ export default function FeedPage() {
 
         {/* Empty state */}
         {!loading && displayReports.length === 0 && (
-          <div className="text-center py-16">
+          <div className="text-center py-12">
             <div className="text-4xl mb-3">
               {tab === "following"
                 ? "🔔"
@@ -462,15 +462,21 @@ export default function FeedPage() {
                 ? "No open cases"
                 : "Intel feed is quiet"}
             </p>
-            <p className="text-[var(--fc-muted)] text-sm">
+            <p className="text-[var(--fc-muted)] text-sm mb-6">
               {tab === "following"
                 ? "Tap the bell on any report to follow it and get updates here."
                 : tab === "near"
-                ? "No reports near you yet. Claim this block as your territory above."
+                ? "No reports near you yet. Be the first to cover this territory."
                 : filter === "all"
                 ? "Spot something broken? You're the investigator now."
                 : "Try a different filter or check back later."}
             </p>
+            {/* Inline Claim CTA — visible button right in the empty state */}
+            {tab === "near" && (
+              <div className="max-w-sm mx-auto">
+                <InlineClaimCTA detectedNeighborhood={detectedNeighborhood} />
+              </div>
+            )}
           </div>
         )}
 

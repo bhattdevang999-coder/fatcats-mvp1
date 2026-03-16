@@ -6,6 +6,7 @@ import Image from "next/image";
 import AppShell from "@/components/AppShell";
 import { IntelLogo, IntelHeader } from "@/components/FatCatsIntel";
 import FollowButton from "@/components/FollowButton";
+import { ReactionBar, CommentSection, CommunityStatusVote, CommentCountBadge } from "@/components/CommunityEngagement";
 import {
   getProjectByFmsId,
   formatMoney,
@@ -309,6 +310,11 @@ export default function ProjectDetailPage() {
                 )}
               </div>
 
+              {/* Activity indicators */}
+              <div className="flex items-center gap-3 mt-2">
+                <CommentCountBadge itemId={`project_${project.fms_id}`} />
+              </div>
+
               {/* Action row: Follow + Share */}
               <div className="flex items-center gap-2 mt-3">
                 <FollowButton kind="project" id={project.fms_id} variant="prominent" />
@@ -460,6 +466,27 @@ export default function ProjectDetailPage() {
             </div>
 
             {/* ── Bottom Note ─────────────────────────────────────── */}
+            {/* Community Status Vote */}
+            <div className="animate-fade-in-up" style={{ animationDelay: "350ms" }}>
+              <CommunityStatusVote
+                itemId={`project_${project.fms_id}`}
+                label={project.current_phase === "(Completed)" || project.current_phase === "Close-out"
+                  ? "Is this project actually completed?"
+                  : "Does this project look on track to you?"
+                }
+              />
+            </div>
+
+            {/* Reactions */}
+            <div className="glass-card p-4 animate-fade-in-up" style={{ animationDelay: "375ms" }}>
+              <ReactionBar itemId={`project_${project.fms_id}`} />
+            </div>
+
+            {/* Comments */}
+            <div className="glass-card p-4 animate-fade-in-up" style={{ animationDelay: "400ms" }}>
+              <CommentSection itemId={`project_${project.fms_id}`} maxVisible={3} />
+            </div>
+
             <div className="pt-2 pb-2 text-center space-y-1.5">
               <div className="flex items-center justify-center gap-1.5">
                 <IntelLogo size={14} />
