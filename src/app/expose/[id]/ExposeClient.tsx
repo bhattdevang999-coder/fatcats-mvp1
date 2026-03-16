@@ -806,6 +806,7 @@ export default function ExposeClient() {
           totalAreaSpend={geoIntel?.totalAreaSpend || undefined}
           nearbyCount={geoIntel?.nearbyCount}
           variant="sticky"
+          reportId={report.id}
         />
 
         {/* Milestone celebration overlay */}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import FollowButton from "@/components/FollowButton";
 
 // X (Twitter) icon
 function XLogo({ size = 20 }: { size?: number }) {
@@ -44,6 +45,9 @@ interface ShareSheetProps {
   totalAreaSpend?: string;
   nearbyCount?: number;
   variant?: "sticky" | "inline";
+  /** When provided in sticky mode, renders a Follow bell as the first button */
+  reportId?: string;
+  projectId?: string;
 }
 
 export default function ShareSheet({
@@ -60,6 +64,8 @@ export default function ShareSheet({
   totalAreaSpend,
   nearbyCount,
   variant = "inline",
+  reportId,
+  projectId,
 }: ShareSheetProps) {
   const [showMore, setShowMore] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -123,6 +129,14 @@ export default function ShareSheet({
         }
       >
         <div className={isSticky ? "max-w-lg mx-auto flex items-center gap-2" : "flex items-center gap-2"}>
+          {/* Follow button — first in sticky bar for max visibility */}
+          {isSticky && reportId && (
+            <FollowButton kind="report" id={reportId} variant="prominent" />
+          )}
+          {isSticky && projectId && (
+            <FollowButton kind="project" id={projectId} variant="prominent" />
+          )}
+
           {/* X button */}
           <button
             onClick={handleX}
