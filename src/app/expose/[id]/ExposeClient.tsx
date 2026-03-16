@@ -12,6 +12,8 @@ import { getPipelineIndex, getCategoryAgency, getAgencyHandle, FLAVOR_REACTIONS 
 import type { Report } from "@/lib/types";
 import { getFullGeoIntelligence, estimateRepairCost } from "@/lib/geo-intelligence";
 import type { GeoIntelligence } from "@/lib/geo-intelligence";
+import { IntelLogo } from "@/components/FatCatsIntel";
+import Image from "next/image";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -406,7 +408,9 @@ export default function ExposeClient() {
     return (
       <AppShell>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="w-8 h-8 border-2 border-[var(--fc-orange)] border-t-transparent rounded-full animate-spin" />
+          <div className="intel-glow">
+            <Image src="/assets/logo-64.png" alt="Loading" width={32} height={32} className="animate-pulse" />
+          </div>
         </div>
       </AppShell>
     );
@@ -527,7 +531,7 @@ export default function ExposeClient() {
               <div className="glass-card-elevated p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                    <span className="text-[16px]">💰</span>
+                    <IntelLogo size={18} />
                     Cost Intelligence
                   </h3>
                   <span className="beta-badge">Beta</span>
@@ -540,13 +544,13 @@ export default function ExposeClient() {
                   </div>
                   {geoIntel && geoIntel.nearbyCount > 0 && (
                     <div>
-                      <span className="text-[11px] text-[var(--fc-muted)] block">Area total spend</span>
+                      <span className="text-[11px] text-[var(--fc-muted)] block">Area spend (~3 blocks)</span>
                       <span className="text-[15px] text-white font-bold">{geoIntel.totalAreaSpend}</span>
                       <button
                         onClick={() => setShowNearbyPanel(!showNearbyPanel)}
                         className="text-[11px] text-[var(--fc-info)] hover:underline cursor-pointer block"
                       >
-                        {geoIntel.nearbyCount} issues nearby →
+                        {geoIntel.nearbyCount} issues within ~3 blocks →
                       </button>
                     </div>
                   )}
@@ -638,8 +642,10 @@ export default function ExposeClient() {
           {/* Verified badge */}
           {isVerified && (
             <div className="glass-card p-4 border border-emerald-500/20 bg-emerald-500/5">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🏆</span>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+                  <Image src="/assets/logo-64.png" alt="Verified" width={24} height={24} style={{ filter: 'drop-shadow(0 0 6px rgba(34, 197, 94, 0.5))' }} />
+                </div>
                 <div>
                   <p className="text-[13px] text-emerald-300 font-semibold">Community Verified</p>
                   <p className="text-[11px] text-[var(--fc-muted)]">Multiple people confirmed this fix. This is now part of the permanent accountability record.</p>
@@ -681,10 +687,7 @@ export default function ExposeClient() {
             <div className="glass-card-elevated p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                    <circle cx="12" cy="9" r="2.5" />
-                  </svg>
+                  <IntelLogo size={18} />
                   Who handles this
                 </h3>
                 <span className="beta-badge">Beta</span>
@@ -744,7 +747,9 @@ export default function ExposeClient() {
               ))}
             </div>
             <div className="flex items-center gap-2 pt-2">
-              <div className="w-8 h-8 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center shrink-0 text-[12px]">😺</div>
+              <div className="w-8 h-8 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center shrink-0">
+                <Image src="/assets/logo-32.png" alt="" width={18} height={18} className="opacity-60" />
+              </div>
               <div className="flex-1 h-9 rounded-full bg-[var(--fc-surface-2)] border border-white/[0.06] flex items-center px-3">
                 <span className="text-[12px] text-[var(--fc-muted)]">Add a comment...</span>
               </div>
@@ -776,7 +781,9 @@ export default function ExposeClient() {
         {showMilestone && (
           <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
             <div className="bg-[var(--fc-surface)]/95 backdrop-blur-xl border border-[var(--fc-orange)]/30 rounded-2xl p-8 text-center animate-scale-in shadow-2xl">
-              <div className="text-5xl mb-3">🎉</div>
+              <div className="intel-glow mx-auto mb-3">
+                <Image src="/assets/logo-128.png" alt="FatCats" width={56} height={56} />
+              </div>
               <p className="text-lg font-bold text-white">{stampCount} people affected</p>
               <p className="text-[13px] text-[var(--fc-muted)] mt-1">This exposé is gaining traction</p>
             </div>

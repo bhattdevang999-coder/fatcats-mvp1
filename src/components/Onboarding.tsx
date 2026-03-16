@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { IntelLogo } from "@/components/FatCatsIntel";
 
 const SCREENS = [
   {
@@ -12,9 +13,9 @@ const SCREENS = [
     detail: null,
   },
   {
-    icon: "🧠",
-    title: "We do the rest",
-    subtitle: "Our AI identifies what it is, rates severity, finds who's responsible, and estimates the cost to fix — instantly.",
+    icon: "intel",
+    title: "FatCats Intel takes over",
+    subtitle: "Our intelligence engine identifies the issue, rates severity, finds who's responsible, and estimates the cost to fix — instantly.",
     accent: "from-[#E8652B]/20 to-transparent",
     detail: [
       { icon: "📍", label: "Auto-detect location & intersection" },
@@ -69,7 +70,11 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
 
         {/* Icon */}
         <div className={`w-20 h-20 rounded-2xl bg-gradient-to-b ${SCREENS[step].accent} flex items-center justify-center mb-6`}>
-          <span className="text-4xl">{SCREENS[step].icon}</span>
+          {SCREENS[step].icon === "intel" ? (
+            <IntelLogo size={48} />
+          ) : (
+            <span className="text-4xl">{SCREENS[step].icon}</span>
+          )}
         </div>
 
         <h2 className="text-2xl font-bold text-white mb-3">{SCREENS[step].title}</h2>
@@ -86,7 +91,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
               >
                 <span className="text-[16px]">{item.icon}</span>
                 <span className="text-[13px] text-white/80 font-medium">{item.label}</span>
-                <span className="ml-auto text-[9px] text-[var(--fc-orange)] font-bold uppercase tracking-wider opacity-70">Beta</span>
+                <span className="ml-auto text-[9px] text-[var(--fc-orange)] font-bold uppercase tracking-wider opacity-70">Intel</span>
               </div>
             ))}
           </div>

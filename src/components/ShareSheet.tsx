@@ -70,7 +70,7 @@ export default function ShareSheet({
   const handleX = () => {
     const councilTag = councilMemberHandle ? ` ${councilMemberHandle}` : "";
     const costLine = costRange ? `Est. cost: ${costRange}. ` : "";
-    const areaLine = totalAreaSpend && nearbyCount ? `${nearbyCount} issues nearby = ${totalAreaSpend} in taxpayer money. ` : "";
+    const areaLine = totalAreaSpend && nearbyCount ? `${nearbyCount} issues within ~3 blocks = ${totalAreaSpend} in taxpayer money. ` : "";
     const text = `🚨 ${title} — ${neighborhood || "NYC"}\n\nOpen ${daysOpen} days. ${affected}${costLine}${areaLine}\n\n${agencyHandle}${councilTag} what's the plan?\n\n${url}\n#FatCatsNYC #PointExposeFix`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };

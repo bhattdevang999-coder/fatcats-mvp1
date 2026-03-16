@@ -8,6 +8,7 @@ import { getDeviceHash, getNeighborhoodFromLatLng } from "@/lib/device";
 import type { AIClassification, GeoIntelligence } from "@/lib/geo-intelligence";
 import { getFullGeoIntelligence, estimateRepairCost } from "@/lib/geo-intelligence";
 import { getCouncilMemberByNeighborhood } from "@/lib/council-districts";
+import { IntelLogo } from "@/components/FatCatsIntel";
 
 const CATEGORIES = [
   { value: "pothole", label: "Pothole", icon: "🕳️" },
@@ -158,8 +159,25 @@ export default function ReportNewPage() {
     fetchGeoIntel(aiResult.category);
   };
 
+  // Undo AI suggestion — clear all AI-filled fields
+  const undoAiSuggestion = () => {
+    setCategory("");
+    setTitle("");
+    setDescription("");
+    setAiApplied(false);
+    setAiResult(null);
+    setGeoIntel(null);
+  };
+
   const handleCategorySelect = (catVal: string) => {
     setCategory(catVal);
+    // If user picks a different category after AI applied, clear AI state
+    if (aiApplied && aiResult && catVal !== aiResult.category) {
+      setTitle("");
+      setDescription("");
+      setAiApplied(false);
+      setAiResult(null);
+    }
     fetchGeoIntel(catVal);
   };
 
@@ -312,7 +330,7 @@ export default function ReportNewPage() {
                 <div className="w-5 h-5 border-2 border-[var(--fc-orange)] border-t-transparent rounded-full animate-spin shrink-0" />
                 <div className="flex-1">
                   <p className="text-[13px] text-white font-medium">Analyzing photo...</p>
-                  <p className="text-[11px] text-[var(--fc-muted)]">AI is identifying the issue</p>
+                  <p className="text-[11px] text-[var(--fc-muted)]">FatCats Intel is identifying the issue</p>
                 </div>
                 <span className="beta-badge">Beta</span>
               </div>
@@ -321,8 +339,8 @@ export default function ReportNewPage() {
             {aiResult && !aiApplied && !classifying && (
               <div className="glass-card-elevated p-4 space-y-3 border border-[var(--fc-orange)]/20">
                 <div className="flex items-center gap-2">
-                  <span className="text-[14px]">🤖</span>
-                  <span className="text-[13px] font-semibold text-white">AI detected an issue</span>
+                  <IntelLogo size={20} />
+                  <span className="text-[13px] font-semibold text-[var(--fc-orange)]">FatCats Intel</span>
                   <span className="beta-badge">Beta</span>
                   <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full border font-semibold ${severityColor(aiResult.severity)}`}>
                     {aiResult.severity.toUpperCase()}
@@ -361,7 +379,13 @@ export default function ReportNewPage() {
             {aiApplied && aiResult && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20">
                 <span className="text-green-400 text-[13px]">✓</span>
-                <span className="text-[12px] text-green-400">AI suggestion applied — you can still edit below</span>
+                <span className="text-[12px] text-green-400 flex-1">FatCats Intel applied — you can still edit below</span>
+                <button
+                  onClick={undoAiSuggestion}
+                  className="text-[11px] text-white/40 hover:text-white/70 transition-colors font-medium shrink-0"
+                >
+                  Undo
+                </button>
               </div>
             )}
 
@@ -467,7 +491,7 @@ export default function ReportNewPage() {
                   <div className="grid grid-cols-2 gap-2">
                     {/* Nearby issues */}
                     <div className="px-3 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                      <span className="text-[11px] text-[var(--fc-muted)] block">Nearby issues</span>
+                      <span className="text-[11px] text-[var(--fc-muted)] block">Nearby (~3 blocks)</span>
                       <span className="text-[14px] text-white font-semibold">{geoIntel.nearbyCount}</span>
                       {geoIntel.nearbyOpenCount > 0 && (
                         <span className="text-[11px] text-amber-400 block">{geoIntel.nearbyOpenCount} still open</span>
@@ -476,7 +500,7 @@ export default function ReportNewPage() {
                     {/* Area spend */}
                     {geoIntel.totalAreaSpend && (
                       <div className="px-3 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                        <span className="text-[11px] text-[var(--fc-muted)] block">Area repair spend</span>
+                        <span className="text-[11px] text-[var(--fc-muted)] block">Area spend (~3 blocks)</span>
                         <span className="text-[14px] text-white font-semibold">{geoIntel.totalAreaSpend}</span>
                         <span className="text-[11px] text-[var(--fc-muted)] block">estimated total</span>
                       </div>
@@ -603,7 +627,7 @@ export default function ReportNewPage() {
                 <div className="flex flex-wrap gap-2">
                   {geoIntel.nearbyCount > 0 && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/[0.06] text-[11px] text-white/80">
-                      📍 {geoIntel.nearbyCount} nearby
+                      📍 {geoIntel.nearbyCount} within ~3 blocks
                     </span>
                   )}
                   {geoIntel.nearbyOpenCount > 0 && (
@@ -618,7 +642,7 @@ export default function ReportNewPage() {
                   )}
                   {geoIntel.totalAreaSpend && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/[0.06] text-[11px] text-white/80">
-                      💰 {geoIntel.totalAreaSpend} area spend
+                      💰 {geoIntel.totalAreaSpend} (~3 blocks)
                     </span>
                   )}
                 </div>
