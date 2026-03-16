@@ -9,6 +9,7 @@ import { getPipelineIndex } from "@/lib/types";
 import { clusterReports } from "@/lib/feed-clustering";
 import { getFollowedReportIds } from "@/lib/follows";
 import { estimateRepairCost } from "@/lib/geo-intelligence";
+import { BlockWatchdogClaimCTA, NeighborhoodLeaderboard } from "@/components/BlockWatchdogCTA";
 import type { Report } from "@/lib/types";
 import type { FeedItem } from "@/lib/feed-clustering";
 
@@ -183,6 +184,8 @@ export default function FeedPage() {
   const [refreshing, setRefreshing] = useState(false);
   const filterScrollRef = useRef<HTMLDivElement>(null);
   const [showScrollHint, setShowScrollHint] = useState(true);
+  const [detectedNeighborhood, setDetectedNeighborhood] = useState<string | null>(null);
+  const [nearbyRadius, setNearbyRadius] = useState<number>(3);
 
   const loadReports = useCallback(async () => {
     const data = await listReports({ limit: 200 });
@@ -219,11 +222,31 @@ export default function FeedPage() {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
 
-          const data = await listNearbyReports({
-            lat,
-            lng,
-            radiusKm: 3,
-          });
+          // Reverse geocode to get neighborhood name
+          try {
+            const geoRes = await fetch(
+              `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?types=neighborhood,locality&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`
+            );
+            const geoData = await geoRes.json();
+            if (geoData.features?.[0]?.text) {
+              setDetectedNeighborhood(geoData.features[0].text);
+            }
+          } catch {}
+
+          // Expanding radius: try 3km, then 10km, then 25km
+          let data = await listNearbyReports({ lat, lng, radiusKm: 3 });
+          let radius = 3;
+
+          if (data.length < 3) {
+            data = await listNearbyReports({ lat, lng, radiusKm: 10 });
+            radius = 10;
+          }
+          if (data.length < 3) {
+            data = await listNearbyReports({ lat, lng, radiusKm: 25 });
+            radius = 25;
+          }
+
+          setNearbyRadius(radius);
           setNearby(data);
           setLocationLoading(false);
           setTab("near");
@@ -359,6 +382,30 @@ export default function FeedPage() {
         {/* 🔥 Hot Topics — trending horizontal scroll */}
         {!loading && tab === "trending" && <HotTopicsBar reports={reports} />}
 
+        {/* 🏆 Neighborhood Leaderboard */}
+        {!loading && tab === "trending" && <NeighborhoodLeaderboard reports={reports} />}
+
+        {/* 🔍 Block Watchdog CTA (Your Block tab — when thin/empty) */}
+        {!loading && tab === "near" && nearby.length < 5 && (
+          <div className="mb-4">
+            {nearbyRadius > 3 && (
+              <div className="flex items-center gap-2 px-3 py-2 mb-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <span className="text-[13px]">📡</span>
+                <span className="text-[12px] text-amber-400">
+                  {nearby.length === 0
+                    ? "No reports near your location. Showing citywide data."
+                    : `Only ${nearby.length} reports within ${nearbyRadius}km. Expanded search radius.`}
+                </span>
+              </div>
+            )}
+            <BlockWatchdogClaimCTA
+              detectedNeighborhood={detectedNeighborhood}
+              nearbyCount={nearby.length}
+              totalCityReports={reports.length}
+            />
+          </div>
+        )}
+
         {/* Cluster stats summary */}
         {!loading && <ClusterStatsBanner feedItems={feedItems} />}
 
@@ -390,6 +437,8 @@ export default function FeedPage() {
             <div className="text-4xl mb-3">
               {tab === "following"
                 ? "🔔"
+                : tab === "near"
+                ? "🗺️"
                 : filter === "verify"
                 ? "✅"
                 : filter === "resolved"
@@ -401,6 +450,8 @@ export default function FeedPage() {
             <p className="text-white text-[15px] font-semibold mb-1">
               {tab === "following"
                 ? "No followed reports yet"
+                : tab === "near"
+                ? "Your block is uncharted territory"
                 : filter === "verify"
                 ? "Nothing to verify yet"
                 : filter === "resolved"
@@ -414,6 +465,8 @@ export default function FeedPage() {
             <p className="text-[var(--fc-muted)] text-sm">
               {tab === "following"
                 ? "Tap the bell on any report to follow it and get updates here."
+                : tab === "near"
+                ? "No reports near you yet. Claim this block as your territory above."
                 : filter === "all"
                 ? "Spot something broken? You're the investigator now."
                 : "Try a different filter or check back later."}

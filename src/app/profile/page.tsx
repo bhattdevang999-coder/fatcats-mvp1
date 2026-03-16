@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import StatusPill from "@/components/StatusPill";
+import { WatchdogBadge } from "@/components/BlockWatchdogCTA";
 import { listReportsByDevice } from "@/lib/reports";
 import { getDeviceHash } from "@/lib/device";
 import {
@@ -13,6 +14,8 @@ import {
   computeCivicScore,
   computeBadges,
 } from "@/lib/engagement";
+import { getWatchdogProfile, getWatchdogTitle, getWatchdogEmoji, getLevelProgress } from "@/lib/watchdog";
+import type { WatchdogProfile } from "@/lib/watchdog";
 import type { Report } from "@/lib/types";
 
 function timeAgo(dateStr: string): string {
@@ -38,6 +41,7 @@ export default function ProfilePage() {
   const [streak, setStreak] = useState(1);
   const [showShareToast, setShowShareToast] = useState(false);
   const impactCardRef = useRef<HTMLDivElement>(null);
+  const [watchdog, setWatchdog] = useState<WatchdogProfile | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -49,6 +53,7 @@ export default function ProfilePage() {
     load();
     const s = getStreak();
     setStreak(s.current);
+    setWatchdog(getWatchdogProfile());
   }, []);
 
   const totalWatchers = reports.reduce((sum, r) => sum + r.supporters_count, 0);
@@ -127,7 +132,49 @@ export default function ProfilePage() {
               · {civic.score} pts
             </span>
           </div>
+          {/* Watchdog badge inline */}
+          <WatchdogBadge />
         </div>
+
+        {/* Block Watchdog territory card */}
+        {watchdog && (
+          <div className="glass-card p-4 mb-5 space-y-3 animate-slide-up border border-[var(--fc-orange)]/15">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[var(--fc-orange)]/10 border border-[var(--fc-orange)]/20 flex items-center justify-center text-[20px]">
+                {getWatchdogEmoji(watchdog.level)}
+              </div>
+              <div className="flex-1">
+                <span className="text-[14px] font-bold text-[var(--fc-orange)]">
+                  {getWatchdogTitle(watchdog.level)}
+                </span>
+                <span className="text-[12px] text-[var(--fc-muted)] block">
+                  {watchdog.neighborhood} · Founding Member
+                </span>
+              </div>
+            </div>
+            {(() => {
+              const progress = getLevelProgress(watchdog);
+              if (!progress.nextLevel) return null;
+              return (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-[var(--fc-muted)]">
+                      Next: {getWatchdogTitle(progress.nextLevel)}
+                    </span>
+                    <span className="text-[11px] text-[var(--fc-orange)] font-bold">{progress.progress}%</span>
+                  </div>
+                  <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-[var(--fc-orange)] to-[#ff8c5a] rounded-full transition-all duration-500"
+                      style={{ width: `${progress.progress}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-[var(--fc-muted)]">{progress.requirement}</p>
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
         {/* Edit profile panel */}
         {showEditProfile && (
