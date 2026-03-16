@@ -7,6 +7,7 @@ import { getPipelineIndex, getAgencyHandle, FLAVOR_REACTIONS } from "@/lib/types
 import { estimateRepairCost } from "@/lib/geo-intelligence";
 import StatusPill from "./StatusPill";
 import { PipelineSteps } from "./StatusPill";
+import FollowButton from "./FollowButton";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -240,7 +241,7 @@ export default function ReportCard({ report }: { report: Report }) {
     e.stopPropagation();
     const url = `${window.location.origin}/expose/${report.id}`;
     if (navigator.share) {
-      navigator.share({ title: report.title, text: `${report.title} — ${report.neighborhood || "NYC"}`, url }).catch(() => {});
+      navigator.share({ title: report.title, text: `${report.title} — ${report.neighborhood || "NYC"} via @FatCatsApp #FatCatsNYC #PointExposeFix`, url }).catch(() => {});
     } else {
       navigator.clipboard.writeText(url);
     }
@@ -356,6 +357,9 @@ export default function ReportCard({ report }: { report: Report }) {
               onClose={() => setShowFlavors(false)}
             />
           </div>
+
+          {/* Follow bell */}
+          <FollowButton kind="report" id={report.id} variant="compact" />
 
           {/* Post on X — icon only */}
           <button

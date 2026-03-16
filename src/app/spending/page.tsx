@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import AppShell from "@/components/AppShell";
 import { IntelLogo, FatCatsIntelBadge } from "@/components/FatCatsIntel";
+import FollowButton from "@/components/FollowButton";
 import {
   fetchTrackedProjects,
   getContractStats,
@@ -36,15 +37,6 @@ function SearchIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="11" cy="11" r="8" />
       <line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  );
-}
-
-function EyeIcon({ active }: { active?: boolean }) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill={active ? "#E8652B" : "none"} stroke={active ? "#E8652B" : "#8B95A8"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
@@ -111,15 +103,13 @@ function BudgetSparkline({ snapshots }: { snapshots: { total_budget: number }[] 
 // ── Project Card ───────────────────────────────────────────────────────
 
 function ProjectCard({ project, index }: { project: TrackedProject; index: number }) {
-  const [following, setFollowing] = useState(false);
-
   const spendPct = project.total_budget > 0
     ? Math.min((project.spend_to_date / project.total_budget) * 100, 100)
     : 0;
 
   const handleShare = () => {
     const delta = project.budget_delta > 0 ? `+${formatMoney(project.budget_delta)}` : formatMoney(project.budget_delta);
-    const text = `NYC project "${project.project_name}" in ${project.borough}: ${formatMoney(project.total_budget)} budget, currently ${phaseLabel(project.current_phase)}. Budget changed ${delta} since tracking started. Track it on FatCats.`;
+    const text = `NYC project "${project.project_name}" in ${project.borough}: ${formatMoney(project.total_budget)} budget, currently ${phaseLabel(project.current_phase)}. Budget changed ${delta} since tracking started. via @FatCatsApp #FatCatsNYC #PointExposeFix`;
     if (typeof navigator !== "undefined" && navigator.share) {
       navigator.share({ title: "Contract Tracker — FatCats", text }).catch(() => {});
     } else if (typeof navigator !== "undefined") {
@@ -209,17 +199,7 @@ function ProjectCard({ project, index }: { project: TrackedProject; index: numbe
       <div className="flex items-center gap-2 pt-2.5 border-t border-white/[0.04]">
         <BudgetSparkline snapshots={project.snapshots} />
         <div className="flex items-center gap-1 ml-auto">
-          <button
-            onClick={() => setFollowing(!following)}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-              following
-                ? "text-[var(--fc-orange)] bg-[var(--fc-orange)]/10"
-                : "text-[var(--fc-muted)] hover:bg-white/5"
-            }`}
-          >
-            <EyeIcon active={following} />
-            <span className="hidden sm:inline">{following ? "Following" : "Follow"}</span>
-          </button>
+          <FollowButton kind="project" id={project.fms_id} variant="compact" />
           <button
             onClick={handleShare}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-[var(--fc-muted)] hover:bg-white/5 transition-all"

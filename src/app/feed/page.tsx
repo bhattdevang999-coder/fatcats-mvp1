@@ -3,14 +3,13 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import AppShell from "@/components/AppShell";
 import ReportCard from "@/components/ReportCard";
-import ClusterCard from "@/components/ClusterCard";
-import NearbyAlertBanner from "@/components/NearbyAlert";
 import SinceYouLeftBanner from "@/components/SinceYouLeft";
 import { listReports, listNearbyReports } from "@/lib/reports";
 import { getPipelineIndex } from "@/lib/types";
-import { clusterReports, checkNearbyAlerts } from "@/lib/feed-clustering";
+import { clusterReports } from "@/lib/feed-clustering";
+import { getFollowedReportIds } from "@/lib/follows";
 import type { Report } from "@/lib/types";
-import type { FeedItem, NearbyAlert, ReportCluster } from "@/lib/feed-clustering";
+import type { FeedItem } from "@/lib/feed-clustering";
 
 type FeedTab = "trending" | "near" | "following";
 type FilterKey = "all" | "open" | "in_progress" | "resolved" | "verify";
@@ -99,6 +98,21 @@ function ClusterStatsBanner({ feedItems }: { feedItems: FeedItem[] }) {
   );
 }
 
+// ── Flatten feed items to reports ─────────────────────────────────────
+
+function flattenFeedItems(feedItems: FeedItem[]): Report[] {
+  const reports: Report[] = [];
+  for (const item of feedItems) {
+    if (item.type === "cluster" && item.cluster) {
+      // Show lead report from each cluster
+      reports.push(item.cluster.leadReport);
+    } else if (item.report) {
+      reports.push(item.report);
+    }
+  }
+  return reports;
+}
+
 // ── Page ────────────────────────────────────────────────────────────────
 
 export default function FeedPage() {
@@ -112,12 +126,6 @@ export default function FeedPage() {
   const [refreshing, setRefreshing] = useState(false);
   const filterScrollRef = useRef<HTMLDivElement>(null);
   const [showScrollHint, setShowScrollHint] = useState(true);
-
-  // Nearby alerts
-  const [userLat, setUserLat] = useState<number | null>(null);
-  const [userLng, setUserLng] = useState<number | null>(null);
-  const [nearbyAlerts, setNearbyAlerts] = useState<NearbyAlert[]>([]);
-  const [alertsDismissed, setAlertsDismissed] = useState(false);
 
   const loadReports = useCallback(async () => {
     const data = await listReports({ limit: 200 });
@@ -153,8 +161,6 @@ export default function FeedPage() {
         async (pos) => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
-          setUserLat(lat);
-          setUserLng(lng);
 
           const data = await listNearbyReports({
             lat,
@@ -174,7 +180,14 @@ export default function FeedPage() {
 
   // ── Clustering ──────────────────────────────────────────────────────
 
-  const baseReports = tab === "near" && nearby.length > 0 ? nearby : reports;
+  const baseReports = useMemo(() => {
+    if (tab === "near" && nearby.length > 0) return nearby;
+    if (tab === "following") {
+      const ids = new Set(getFollowedReportIds());
+      return reports.filter((r) => ids.has(r.id));
+    }
+    return reports;
+  }, [tab, reports, nearby]);
   const filteredReports = filterByPipeline(baseReports, filter);
 
   const feedItems = useMemo(
@@ -182,15 +195,11 @@ export default function FeedPage() {
     [filteredReports]
   );
 
-  // Check nearby alerts when we have clusters + user location
-  useEffect(() => {
-    if (userLat == null || userLng == null) return;
-    const clusters = feedItems
-      .filter((f): f is FeedItem & { cluster: ReportCluster } => f.type === "cluster" && f.cluster != null)
-      .map((f) => f.cluster);
-    const alerts = checkNearbyAlerts(clusters, userLat, userLng);
-    setNearbyAlerts(alerts);
-  }, [feedItems, userLat, userLng]);
+  // Flatten clusters into individual reports for rendering
+  const displayReports = useMemo(
+    () => flattenFeedItems(feedItems),
+    [feedItems]
+  );
 
   // Count reports in each filter for badges
   const counts: Record<FilterKey, number> = {
@@ -287,14 +296,6 @@ export default function FeedPage() {
           )}
         </div>
 
-        {/* Nearby alerts banner */}
-        {!alertsDismissed && nearbyAlerts.length > 0 && (
-          <NearbyAlertBanner
-            alerts={nearbyAlerts}
-            onDismiss={() => setAlertsDismissed(true)}
-          />
-        )}
-
         {/* Since You Left banner */}
         {!loading && <SinceYouLeftBanner reports={reports} />}
 
@@ -324,10 +325,12 @@ export default function FeedPage() {
         )}
 
         {/* Empty state */}
-        {!loading && feedItems.length === 0 && (
+        {!loading && displayReports.length === 0 && (
           <div className="text-center py-16">
             <div className="text-4xl mb-3">
-              {filter === "verify"
+              {tab === "following"
+                ? "🔔"
+                : filter === "verify"
                 ? "✅"
                 : filter === "resolved"
                 ? "🎉"
@@ -336,7 +339,9 @@ export default function FeedPage() {
                 : "📭"}
             </div>
             <p className="text-white text-[15px] font-semibold mb-1">
-              {filter === "verify"
+              {tab === "following"
+                ? "No followed reports yet"
+                : filter === "verify"
                 ? "Nothing to verify yet"
                 : filter === "resolved"
                 ? "No fixes confirmed yet"
@@ -347,27 +352,21 @@ export default function FeedPage() {
                 : "Intel feed is quiet"}
             </p>
             <p className="text-[var(--fc-muted)] text-sm">
-              {filter === "all"
+              {tab === "following"
+                ? "Tap the bell on any report to follow it and get updates here."
+                : filter === "all"
                 ? "Spot something broken? You're the investigator now."
                 : "Try a different filter or check back later."}
             </p>
           </div>
         )}
 
-        {/* Feed items — clusters + individual reports */}
-        {!loading && feedItems.length > 0 && (
+        {/* Feed items — individual report cards */}
+        {!loading && displayReports.length > 0 && (
           <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-5">
-            {feedItems.map((item, idx) =>
-              item.type === "cluster" && item.cluster ? (
-                <ClusterCard
-                  key={item.cluster.id}
-                  cluster={item.cluster}
-                  index={idx}
-                />
-              ) : item.report ? (
-                <ReportCard key={item.report.id} report={item.report} />
-              ) : null
-            )}
+            {displayReports.map((report) => (
+              <ReportCard key={report.id} report={report} />
+            ))}
           </div>
         )}
       </div>

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import AppShell from "@/components/AppShell";
 import { IntelLogo, IntelHeader } from "@/components/FatCatsIntel";
+import FollowButton from "@/components/FollowButton";
 import {
   getProjectByFmsId,
   formatMoney,
@@ -42,15 +43,6 @@ function ShareIcon() {
       <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
       <polyline points="16 6 12 2 8 6" />
       <line x1="12" y1="2" x2="12" y2="15" />
-    </svg>
-  );
-}
-
-function ClipboardIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
     </svg>
   );
 }
@@ -237,7 +229,7 @@ export default function ProjectDetailPage() {
   const handleShare = () => {
     if (!project) return;
     const delta = project.budget_delta > 0 ? `+${formatMoney(project.budget_delta)}` : formatMoney(project.budget_delta);
-    const text = `NYC project "${project.project_name}" in ${project.borough}: ${formatMoney(project.total_budget)} budget, currently ${phaseLabel(project.current_phase)}. Budget changed ${delta} since tracking started. Track it on FatCats.`;
+    const text = `NYC project "${project.project_name}" in ${project.borough}: ${formatMoney(project.total_budget)} budget, currently ${phaseLabel(project.current_phase)}. Budget changed ${delta} since tracking started. via @FatCatsApp #FatCatsNYC #PointExposeFix`;
     if (typeof navigator !== "undefined" && navigator.share) {
       navigator.share({ title: project.project_name, text }).catch(() => {});
     } else if (typeof navigator !== "undefined") {
@@ -315,6 +307,18 @@ export default function ProjectDetailPage() {
                     CB {project.community_board}
                   </span>
                 )}
+              </div>
+
+              {/* Action row: Follow + Share */}
+              <div className="flex items-center gap-2 mt-3">
+                <FollowButton kind="project" id={project.fms_id} variant="prominent" />
+                <button
+                  onClick={handleShare}
+                  className="flex items-center gap-2 px-4 h-11 rounded-xl font-bold text-[13px] bg-white/[0.06] text-white border border-white/[0.08] hover:bg-white/[0.12] transition-all active:scale-95"
+                >
+                  <ShareIcon />
+                  <span>{copied ? "Copied!" : "Share"}</span>
+                </button>
               </div>
             </div>
 
@@ -455,32 +459,6 @@ export default function ProjectDetailPage() {
               </div>
             </div>
 
-            {/* ── Share Card ──────────────────────────────────────── */}
-            <div className="glass-card p-4 animate-fade-in-up" style={{ animationDelay: "350ms" }}>
-              <h3 className="text-[12px] font-semibold text-[var(--fc-muted)] uppercase tracking-wider mb-2">Share this project</h3>
-              <p className="text-[11px] text-[var(--fc-muted)] leading-relaxed mb-3 bg-white/[0.03] rounded-lg p-3 border border-white/[0.04]">
-                NYC project &ldquo;{project.project_name}&rdquo; in {project.borough}: {formatMoney(project.total_budget)} budget, currently {phaseLabel(project.current_phase)}.
-                Budget changed {project.budget_delta > 0 ? "+" : ""}{formatMoney(project.budget_delta)} since tracking started.
-                Track it on FatCats.
-              </p>
-              <button
-                onClick={handleShare}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[var(--fc-orange)] text-white text-[13px] font-semibold hover:bg-[var(--fc-orange-hover)] transition-colors"
-              >
-                {copied ? (
-                  <>
-                    <ClipboardIcon />
-                    Copied to clipboard!
-                  </>
-                ) : (
-                  <>
-                    <ShareIcon />
-                    Share this project
-                  </>
-                )}
-              </button>
-            </div>
-
             {/* ── Bottom Note ─────────────────────────────────────── */}
             <div className="pt-2 pb-2 text-center space-y-1.5">
               <div className="flex items-center justify-center gap-1.5">
@@ -501,9 +479,28 @@ export default function ProjectDetailPage() {
                 . FatCats Intel computes budget changes and schedule flags automatically.
               </p>
             </div>
+
+            {/* Spacer for sticky bar */}
+            <div className="h-16" />
           </>
         )}
       </div>
+
+      {/* Sticky bottom bar */}
+      {project && (
+        <div className="fixed bottom-[var(--bottom-bar-height)] left-0 right-0 z-40 px-4 pb-3 pt-2 bg-gradient-to-t from-[var(--fc-bg)] via-[var(--fc-bg)]/95 to-transparent">
+          <div className="max-w-lg mx-auto flex items-center gap-2">
+            <FollowButton kind="project" id={project.fms_id} variant="prominent" />
+            <button
+              onClick={handleShare}
+              className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-[var(--fc-orange)] hover:bg-[var(--fc-orange-hover)] text-white font-bold text-[14px] transition-all active:scale-[0.97]"
+            >
+              <ShareIcon />
+              <span>{copied ? "Copied!" : "Share"}</span>
+            </button>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

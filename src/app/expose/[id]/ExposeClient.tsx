@@ -13,6 +13,8 @@ import type { Report } from "@/lib/types";
 import { getFullGeoIntelligence, estimateRepairCost } from "@/lib/geo-intelligence";
 import type { GeoIntelligence } from "@/lib/geo-intelligence";
 import { IntelLogo } from "@/components/FatCatsIntel";
+import FollowButton from "@/components/FollowButton";
+import { hasSeenFollowNudge, markFollowNudgeSeen } from "@/lib/follows";
 import Image from "next/image";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -304,6 +306,16 @@ export default function ExposeClient() {
   const [geoLoading, setGeoLoading] = useState(false);
   const [showNearbyPanel, setShowNearbyPanel] = useState(false);
 
+  // Follow nudge banner
+  const [showFollowNudge, setShowFollowNudge] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (hasSeenFollowNudge()) return;
+    const timer = setTimeout(() => setShowFollowNudge(true), 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
   useEffect(() => {
     async function load() {
       const data = await getReportById(id);
@@ -522,6 +534,9 @@ export default function ExposeClient() {
               </button>
               <FlavorPopover visible={showFlavors} onSelect={handleFlavorSelect} onClose={() => setShowFlavors(false)} />
             </div>
+
+            {/* Follow button — prominent */}
+            <FollowButton kind="report" id={report.id} variant="prominent" />
           </div>
 
           {/* Cost Intelligence card */}
@@ -760,6 +775,22 @@ export default function ExposeClient() {
             Every exposé is a receipt. Thanks for helping your city.
           </p>
         </div>
+
+        {/* Follow nudge banner — slides up after 3s for first-time visitors */}
+        {showFollowNudge && (
+          <div className="fixed bottom-[72px] left-0 right-0 z-40 flex justify-center px-4 animate-slide-up">
+            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-[var(--fc-surface)]/95 backdrop-blur-xl border border-[var(--fc-orange)]/20 shadow-xl max-w-md w-full">
+              <span className="text-[13px] text-white font-medium flex-1">Follow this exposé for updates</span>
+              <FollowButton kind="report" id={report.id} variant="compact" />
+              <button
+                onClick={() => { setShowFollowNudge(false); markFollowNudgeSeen(); }}
+                className="text-[var(--fc-muted)] hover:text-white transition-colors text-xs"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Sticky share bar at bottom — X, Reddit, Share */}
         <ShareSheet

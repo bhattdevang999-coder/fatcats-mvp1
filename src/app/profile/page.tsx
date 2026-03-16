@@ -77,7 +77,7 @@ export default function ProfilePage() {
   const unlockedCount = badges.filter((b) => b.unlocked).length;
 
   const handleShare = () => {
-    const text = `I'm holding my city accountable on FatCats.\n\n🔥 ${streak}-day streak\n📸 ${reports.length} exposés filed\n👁️ ${totalWatchers} people watching\n⭐ ${civic.score} civic score (${civic.level})\n\nJoin me → fatcatsapp.com`;
+    const text = `I'm holding my city accountable on FatCats.\n\n🔥 ${streak}-day streak\n📸 ${reports.length} exposés filed\n👁️ ${totalWatchers} people watching\n⭐ ${civic.score} civic score (${civic.level})\n\nJoin me → fatcatsapp.com\nvia @FatCatsApp #FatCatsNYC #PointExposeFix`;
     if (navigator.share) {
       navigator.share({ title: "My FatCats Impact", text, url: "https://fatcatsapp.com" }).catch(() => {});
     } else {

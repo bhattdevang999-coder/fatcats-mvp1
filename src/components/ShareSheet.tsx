@@ -91,7 +91,7 @@ export default function ShareSheet({
       try {
         await navigator.share({
           title,
-          text: `${title} — ${neighborhood || "NYC"}. ${affected}`,
+          text: `${title} — ${neighborhood || "NYC"}. ${affected}via @FatCatsApp #FatCatsNYC #PointExposeFix`,
           url,
         });
       } catch {}
