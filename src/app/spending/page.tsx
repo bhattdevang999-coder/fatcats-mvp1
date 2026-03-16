@@ -1,58 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+import Image from "next/image";
 import AppShell from "@/components/AppShell";
+import { IntelLogo, FatCatsIntelBadge } from "@/components/FatCatsIntel";
 import {
-  listCapitalProjects,
-  getSpendingSummary,
-  getSpendingByBorough,
-  type CapitalProject,
-  type SpendingSummary,
-  type BoroughSpending,
-} from "@/lib/spending";
+  fetchTrackedProjects,
+  getContractStats,
+  formatMoney,
+  formatDays,
+  phaseLabel,
+  phaseColor,
+  type TrackedProject,
+  type ProjectFilter,
+} from "@/lib/capital-projects";
 
-// ── Money formatting ─────────────────────────────────────────────────
+// ── Filter config ──────────────────────────────────────────────────────
 
-function formatMoney(cents: number): string {
-  const n = Math.abs(cents);
-  if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${n.toLocaleString()}`;
-  return `$${n}`;
-}
-
-// ── Filter pills ─────────────────────────────────────────────────────
+const FILTER_TABS: { key: ProjectFilter; label: string; icon: string }[] = [
+  { key: "all", label: "All", icon: "" },
+  { key: "over_budget", label: "Over Budget", icon: "🔴" },
+  { key: "behind_schedule", label: "Behind Schedule", icon: "⏳" },
+  { key: "construction", label: "Construction", icon: "🚧" },
+  { key: "completed", label: "Completed", icon: "✅" },
+  { key: "stalled", label: "Stalled", icon: "⏸" },
+];
 
 const BOROUGHS = ["All", "Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island", "Citywide"];
 
-// ── SVG Icons ────────────────────────────────────────────────────────
-
-function EyeIcon({ active }: { active?: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill={active ? "#E8652B" : "none"} stroke={active ? "#E8652B" : "#8B95A8"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function ShareIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-      <polyline points="16 6 12 2 8 6" />
-      <line x1="12" y1="2" x2="12" y2="15" />
-    </svg>
-  );
-}
-
-function BookmarkIcon({ active }: { active?: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill={active ? "#E8652B" : "none"} stroke={active ? "#E8652B" : "#8B95A8"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
+// ── SVG Icons ──────────────────────────────────────────────────────────
 
 function SearchIcon() {
   return (
@@ -63,381 +40,477 @@ function SearchIcon() {
   );
 }
 
-// ── Summary Card ─────────────────────────────────────────────────────
-
-function SummaryCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+function EyeIcon({ active }: { active?: boolean }) {
   return (
-    <div className="glass-card p-4 flex items-center gap-3">
-      <div className="w-10 h-10 rounded-xl bg-[var(--fc-orange)]/10 flex items-center justify-center shrink-0">
-        {icon}
-      </div>
-      <div>
-        <span className="text-[11px] text-[var(--fc-muted)] uppercase tracking-widest font-semibold block">
-          {label}
-        </span>
-        <span className="text-lg font-bold text-white">{value}</span>
-      </div>
-    </div>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill={active ? "#E8652B" : "none"} stroke={active ? "#E8652B" : "#8B95A8"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
   );
 }
 
-// ── Borough Card ─────────────────────────────────────────────────────
-
-function BoroughCard({ item }: { item: BoroughSpending }) {
-  const pct = item.planned > 0 ? Math.min((item.spent / item.planned) * 100, 100) : 0;
-
-  // Hide $0/$0 boroughs
-  if (item.planned === 0 && item.spent === 0) return null;
-
+function ShareIcon() {
   return (
-    <div className="glass-card p-4">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-white font-semibold text-[13px]">{item.borough}</span>
-        <span className="text-[11px] text-[var(--fc-muted)] bg-white/5 px-2 py-0.5 rounded-full">
-          {item.count} project{item.count !== 1 ? "s" : ""}
-        </span>
-      </div>
-
-      <div className="space-y-2">
-        <div>
-          <div className="flex justify-between text-[11px] text-[var(--fc-muted)] mb-1">
-            <span>Planned</span>
-            <span className="text-white font-medium">{formatMoney(item.planned)}</span>
-          </div>
-          <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-            <div className="h-full bg-white/20 rounded-full" style={{ width: "100%" }} />
-          </div>
-        </div>
-        <div>
-          <div className="flex justify-between text-[11px] text-[var(--fc-muted)] mb-1">
-            <span>Spent</span>
-            <span className="text-[var(--fc-orange)] font-medium">{formatMoney(item.spent)}</span>
-          </div>
-          <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-            <div className="h-full bg-[var(--fc-orange)] rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
-          </div>
-        </div>
-      </div>
-    </div>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+      <polyline points="16 6 12 2 8 6" />
+      <line x1="12" y1="2" x2="12" y2="15" />
+    </svg>
   );
 }
 
-// ── Contract Card ────────────────────────────────────────────────────
+function ChevronRightIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
 
-function ContractCard({ project }: { project: CapitalProject }) {
+// ── Mini Sparkline ─────────────────────────────────────────────────────
+
+function BudgetSparkline({ snapshots }: { snapshots: { total_budget: number }[] }) {
+  if (snapshots.length < 2) return null;
+
+  const budgets = snapshots.map(s => s.total_budget);
+  const min = Math.min(...budgets);
+  const max = Math.max(...budgets);
+  const range = max - min || 1;
+
+  const w = 80;
+  const h = 24;
+  const pad = 2;
+
+  const points = budgets.map((b, i) => {
+    const x = pad + (i / (budgets.length - 1)) * (w - pad * 2);
+    const y = h - pad - ((b - min) / range) * (h - pad * 2);
+    return `${x},${y}`;
+  });
+
+  const increased = budgets[budgets.length - 1] > budgets[0];
+  const color = increased ? "#EF4444" : "#22C55E";
+
+  return (
+    <svg width={w} height={h} className="shrink-0">
+      <polyline
+        points={points.join(" ")}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity="0.7"
+      />
+      {points.map((pt, i) => (
+        <circle key={i} cx={pt.split(",")[0]} cy={pt.split(",")[1]} r="2" fill={color} opacity="0.9" />
+      ))}
+    </svg>
+  );
+}
+
+// ── Project Card ───────────────────────────────────────────────────────
+
+function ProjectCard({ project, index }: { project: TrackedProject; index: number }) {
   const [following, setFollowing] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
-  const pctSpent = project.planned_commit > 0
-    ? Math.min((project.spent_total / project.planned_commit) * 100, 100)
+  const spendPct = project.total_budget > 0
+    ? Math.min((project.spend_to_date / project.total_budget) * 100, 100)
     : 0;
 
-  const handleFollow = () => {
-    setFollowing(!following);
-    if (!following) {
-      setShowConfirm(true);
-      setTimeout(() => setShowConfirm(false), 1500);
-    }
-  };
-
-  const handleSave = () => {
-    setSaved(!saved);
-  };
-
   const handleShare = () => {
-    const text = `NYC is spending ${formatMoney(project.planned_commit)} on ${project.description || "a capital project"}. See it on FatCats`;
-    if (navigator.share) {
-      navigator.share({ title: "Open Contract — FatCats", text }).catch(() => {});
-    } else {
+    const delta = project.budget_delta > 0 ? `+${formatMoney(project.budget_delta)}` : formatMoney(project.budget_delta);
+    const text = `NYC project "${project.project_name}" in ${project.borough}: ${formatMoney(project.total_budget)} budget, currently ${phaseLabel(project.current_phase)}. Budget changed ${delta} since tracking started. Track it on FatCats.`;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      navigator.share({ title: "Contract Tracker — FatCats", text }).catch(() => {});
+    } else if (typeof navigator !== "undefined") {
       navigator.clipboard.writeText(text);
     }
   };
 
   return (
-    <div className="glass-card p-4 animate-slide-up relative">
-      {/* Follow confirmation toast */}
-      {showConfirm && (
-        <div className="absolute top-2 right-2 text-[10px] text-[var(--fc-orange)] bg-[var(--fc-orange)]/10 px-2 py-1 rounded-md animate-scale-in">
-          Following
-        </div>
-      )}
-
-      {/* Top row: borough + agency */}
-      <div className="flex items-center gap-2 mb-2">
-        {project.borough && (
-          <span className="text-[10px] font-bold text-[var(--fc-orange)] bg-[var(--fc-orange)]/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
-            {project.borough}
-          </span>
-        )}
-        {project.agency && (
-          <span className="text-[11px] text-[var(--fc-muted)] truncate">{project.agency}</span>
+    <div
+      className="glass-card p-4 animate-card-entrance"
+      style={{ animationDelay: `${Math.min(index * 60, 400)}ms` }}
+    >
+      {/* Top row: Phase + Borough + Agency */}
+      <div className="flex items-center gap-2 mb-2.5 flex-wrap">
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${phaseColor(project.current_phase)}`}>
+          {phaseLabel(project.current_phase)}
+        </span>
+        <span className="text-[10px] font-bold text-[var(--fc-orange)] bg-[var(--fc-orange)]/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+          {project.borough}
+        </span>
+        {project.managing_agency && (
+          <span className="text-[10px] text-[var(--fc-muted)] ml-auto">{project.managing_agency}</span>
         )}
       </div>
 
-      {/* Description */}
-      <p className="text-white text-[13px] font-medium leading-snug mb-3 line-clamp-2">
-        {project.description ?? "Unnamed Project"}
-      </p>
+      {/* Project name */}
+      <h3 className="text-[14px] font-bold text-white leading-snug mb-1 line-clamp-2">
+        {project.project_name}
+      </h3>
 
-      {/* Financial progress */}
+      {/* Description */}
+      {project.project_description && (
+        <p className="text-[12px] text-[var(--fc-muted)] leading-relaxed mb-3 line-clamp-2">
+          {project.project_description}
+        </p>
+      )}
+
+      {/* Budget bar */}
       <div className="mb-3">
         <div className="flex justify-between text-[11px] mb-1.5">
           <span className="text-[var(--fc-muted)]">
-            Spent: <span className="text-[var(--fc-orange)] font-semibold">{formatMoney(project.spent_total)}</span>
+            Spent: <span className="text-[var(--fc-orange)] font-semibold">{formatMoney(project.spend_to_date)}</span>
           </span>
           <span className="text-[var(--fc-muted)]">
-            of <span className="text-white font-semibold">{formatMoney(project.planned_commit)}</span>
+            of <span className="text-white font-semibold">{formatMoney(project.total_budget)}</span>
           </span>
         </div>
         <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
           <div
-            className="h-full bg-[var(--fc-orange)] rounded-full transition-all duration-700"
-            style={{ width: `${pctSpent}%` }}
+            className="h-full rounded-full transition-all duration-700"
+            style={{
+              width: `${spendPct}%`,
+              background: spendPct > 90 ? "var(--fc-alert)" : "var(--fc-orange)",
+            }}
           />
+        </div>
+        <div className="text-right text-[10px] text-[var(--fc-muted)] mt-0.5">
+          {spendPct.toFixed(0)}% spent
         </div>
       </div>
 
-      {/* Action bar */}
-      <div className="flex items-center gap-1 pt-2.5 border-t border-white/[0.04]">
-        <button
-          onClick={handleFollow}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-            following
-              ? "text-[var(--fc-orange)] bg-[var(--fc-orange)]/10"
-              : "text-[var(--fc-muted)] hover:bg-white/5"
-          }`}
-        >
-          <EyeIcon active={following} />
-          <span>{following ? "Following" : "Follow"}</span>
-        </button>
+      {/* Intelligence badges */}
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {project.is_over_budget && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20">
+            ↑ {formatMoney(Math.abs(project.budget_delta))} over (+{project.budget_delta_pct}%)
+          </span>
+        )}
+        {!project.is_over_budget && project.budget_delta < 0 && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg bg-green-500/10 text-green-400 border border-green-500/20">
+            ↓ {formatMoney(Math.abs(project.budget_delta))} under
+          </span>
+        )}
+        {project.is_behind_schedule && project.is_overdue && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            ⏳ {formatDays(project.days_overdue)} overdue
+          </span>
+        )}
+        {project.is_behind_schedule && !project.is_overdue && project.schedule_slip_days > 0 && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            Slipped {formatDays(project.schedule_slip_days)}
+          </span>
+        )}
+      </div>
 
-        <button
-          onClick={handleShare}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-[var(--fc-muted)] hover:bg-white/5 transition-all"
-        >
-          <ShareIcon />
-          <span>Share</span>
-        </button>
-
-        <button
-          onClick={handleSave}
-          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ml-auto ${
-            saved
-              ? "text-[var(--fc-orange)] bg-[var(--fc-orange)]/10"
-              : "text-[var(--fc-muted)] hover:bg-white/5"
-          }`}
-        >
-          <BookmarkIcon active={saved} />
-        </button>
+      {/* Sparkline + Actions */}
+      <div className="flex items-center gap-2 pt-2.5 border-t border-white/[0.04]">
+        <BudgetSparkline snapshots={project.snapshots} />
+        <div className="flex items-center gap-1 ml-auto">
+          <button
+            onClick={() => setFollowing(!following)}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+              following
+                ? "text-[var(--fc-orange)] bg-[var(--fc-orange)]/10"
+                : "text-[var(--fc-muted)] hover:bg-white/5"
+            }`}
+          >
+            <EyeIcon active={following} />
+            <span className="hidden sm:inline">{following ? "Following" : "Follow"}</span>
+          </button>
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-[var(--fc-muted)] hover:bg-white/5 transition-all"
+          >
+            <ShareIcon />
+          </button>
+          <Link
+            href={`/spending/${encodeURIComponent(project.fms_id)}`}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-[var(--fc-orange)] hover:bg-[var(--fc-orange)]/10 transition-all"
+          >
+            Detail <ChevronRightIcon />
+          </Link>
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Page ─────────────────────────────────────────────────────────────
+// ── Loading State ──────────────────────────────────────────────────────
 
-export default function SpendingPage() {
-  const [activeBorough, setActiveBorough] = useState("All");
-  const [summary, setSummary] = useState<SpendingSummary | null>(null);
-  const [boroughData, setBoroughData] = useState<BoroughSpending[]>([]);
-  const [projects, setProjects] = useState<CapitalProject[]>([]);
+function LoadingState() {
+  return (
+    <div className="space-y-6">
+      {/* Logo spinner */}
+      <div className="flex flex-col items-center justify-center py-8 gap-3">
+        <div className="intel-glow">
+          <Image src="/assets/logo-64.png" alt="Loading" width={48} height={48} className="opacity-60" />
+        </div>
+        <p className="text-[12px] text-[var(--fc-muted)]">Loading contracts...</p>
+      </div>
+
+      {/* Stat skeletons */}
+      <div className="grid grid-cols-3 gap-2">
+        {[0, 1, 2].map(i => (
+          <div key={i} className="glass-card p-4 h-20 skeleton-shimmer rounded-2xl" />
+        ))}
+      </div>
+
+      {/* Card skeletons */}
+      <div className="space-y-3">
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} className="glass-card p-4 h-44 skeleton-shimmer rounded-2xl" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────
+
+export default function ContractTrackerPage() {
+  const [projects, setProjects] = useState<TrackedProject[]>([]);
+  const [stats, setStats] = useState<{
+    totalProjects: number;
+    overBudgetCount: number;
+    behindScheduleCount: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      const [s, b, p] = await Promise.all([
-        getSpendingSummary(),
-        getSpendingByBorough(),
-        listCapitalProjects({ limit: 200 }),
+  const [activeFilter, setActiveFilter] = useState<ProjectFilter>("all");
+  const [activeBorough, setActiveBorough] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [displayCount, setDisplayCount] = useState(20);
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [allStats, filtered] = await Promise.all([
+        getContractStats(),
+        fetchTrackedProjects({
+          filter: activeFilter,
+          borough: activeBorough === "All" ? undefined : activeBorough,
+          search: searchQuery.trim() || undefined,
+        }),
       ]);
-      setSummary(s);
-      setBoroughData(b);
-      setProjects(p);
+
+      setStats({
+        totalProjects: allStats.totalProjects,
+        overBudgetCount: allStats.overBudgetCount,
+        behindScheduleCount: allStats.behindScheduleCount,
+      });
+      setProjects(filtered);
+      setDisplayCount(20);
+    } catch {
+      setError("Failed to load contract data. Try refreshing.");
+    } finally {
       setLoading(false);
     }
-    load();
-  }, []);
+  }, [activeFilter, activeBorough, searchQuery]);
 
   useEffect(() => {
-    async function loadFiltered() {
-      const borough = activeBorough === "All" ? undefined : activeBorough;
-      const p = await listCapitalProjects({ borough, limit: 200 });
-      setProjects(p);
-    }
-    loadFiltered();
-  }, [activeBorough]);
+    loadData();
+  }, [loadData]);
 
-  // Client-side search filter
-  const filteredProjects = searchQuery.trim()
-    ? projects.filter((p) =>
-        (p.description || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.agency || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.borough || "").toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : projects;
+  const visibleProjects = projects.slice(0, displayCount);
+  const hasMore = displayCount < projects.length;
 
   return (
     <AppShell>
-      <div className="max-w-lg mx-auto px-4 py-5 space-y-6">
+      <div className="max-w-lg mx-auto px-4 py-5 space-y-5">
 
-        {/* Header */}
-        <div className="animate-slide-up">
-          <h1 className="text-xl font-bold text-white leading-tight">
-            Open Contracts
-          </h1>
-          <p className="text-[13px] text-[var(--fc-muted)] mt-1">
-            Follow the money. See where your tax dollars go.
-          </p>
-        </div>
-
-        {/* Weekly Spending Reveal banner */}
-        <div className="glass-card p-4 border border-amber-500/10 animate-slide-up">
-          <div className="flex items-center gap-3">
-            <div className="text-2xl">💰</div>
-            <div className="flex-1">
-              <p className="text-[13px] font-bold text-white">Weekly Spending Reveal</p>
-              <p className="text-[11px] text-[var(--fc-muted)]">
-                This week in NYC: {summary ? formatMoney(Math.floor(summary.totalSpent * 0.02)) : "..."} on new projects.
-                Updated every Monday.
+        {/* ── Header ─────────────────────────────────────────────── */}
+        <div className="animate-fade-in-up">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="intel-glow">
+              <Image src="/assets/logo-64.png" alt="FatCats" width={32} height={32} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white leading-tight">
+                Contract Tracker
+              </h1>
+              <p className="text-[12px] text-[var(--fc-muted)] flex items-center gap-1.5 mt-0.5">
+                Follow the money. Every dollar. Every delay.
+                <FatCatsIntelBadge size="sm" showBeta />
               </p>
             </div>
           </div>
         </div>
 
-        {/* Summary cards */}
+        {/* ── Stats Banner ───────────────────────────────────────── */}
         {loading ? (
-          <div className="grid grid-cols-1 gap-3">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="glass-card p-5 h-16 skeleton-shimmer rounded-2xl" />
+          <div className="grid grid-cols-3 gap-2">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="glass-card p-4 h-[76px] skeleton-shimmer rounded-2xl" />
             ))}
           </div>
-        ) : summary ? (
-          <div className="grid grid-cols-1 gap-3">
-            <SummaryCard
-              label="Total Planned"
-              value={formatMoney(summary.totalPlanned)}
-              icon={
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-orange)" strokeWidth="2">
-                  <line x1="12" y1="1" x2="12" y2="23" />
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                </svg>
-              }
-            />
-            <SummaryCard
-              label="Total Spent"
-              value={formatMoney(summary.totalSpent)}
-              icon={
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-                  <polyline points="17 6 23 6 23 12" />
-                </svg>
-              }
-            />
-            <SummaryCard
-              label="Projects"
-              value={summary.projectCount.toLocaleString()}
-              icon={
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                </svg>
-              }
-            />
+        ) : stats ? (
+          <div className="grid grid-cols-3 gap-2 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+            <div className="glass-card-elevated p-3 text-center">
+              <p className="text-2xl font-black text-white">{stats.totalProjects.toLocaleString()}</p>
+              <p className="text-[10px] text-[var(--fc-muted)] font-semibold uppercase tracking-wider mt-0.5">Tracked</p>
+            </div>
+            <div className="glass-card-elevated p-3 text-center border-red-500/10">
+              <p className="text-2xl font-black text-red-400">{stats.overBudgetCount}</p>
+              <p className="text-[10px] text-red-400/70 font-semibold uppercase tracking-wider mt-0.5">Over Budget</p>
+            </div>
+            <div className="glass-card-elevated p-3 text-center border-amber-500/10">
+              <p className="text-2xl font-black text-amber-400">{stats.behindScheduleCount}</p>
+              <p className="text-[10px] text-amber-400/70 font-semibold uppercase tracking-wider mt-0.5">Behind Sched.</p>
+            </div>
           </div>
         ) : null}
 
-        {/* Borough breakdown */}
-        {boroughData.length > 0 && (
-          <section>
-            <h2 className="text-[13px] font-semibold text-white/60 uppercase tracking-wider mb-3">
-              By Borough
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {boroughData.map((item) => (
-                <BoroughCard key={item.borough} item={item} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Search bar + Filter pills */}
-        <section>
-          {/* Search */}
-          <div className="relative mb-4">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2">
-              <SearchIcon />
-            </div>
-            <input
-              type="text"
-              placeholder="Search contracts..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 pl-10 pr-4 rounded-xl bg-white/[0.06] border border-white/[0.08] text-white text-[13px] placeholder:text-[var(--fc-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--fc-orange)] focus:border-transparent"
-            />
-            {searchQuery && (
+        {/* ── Smart Filter Tabs ──────────────────────────────────── */}
+        <div className="overflow-x-auto no-scrollbar -mx-4 px-4">
+          <div className="flex gap-2 w-max">
+            {FILTER_TABS.map(tab => (
               <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--fc-muted)] hover:text-white"
+                key={tab.key}
+                onClick={() => setActiveFilter(tab.key)}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-semibold transition-all shrink-0 ${
+                  activeFilter === tab.key
+                    ? "bg-[var(--fc-orange)] text-white shadow-lg shadow-[var(--fc-orange)]/20"
+                    : "bg-[var(--fc-surface)] text-[var(--fc-muted)] border border-[var(--fc-glass-border)] hover:text-white hover:bg-white/10"
+                }`}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                {tab.icon && <span>{tab.icon}</span>}
+                {tab.label}
               </button>
-            )}
+            ))}
           </div>
+        </div>
 
-          <div className="flex gap-2 flex-wrap mb-4 no-scrollbar overflow-x-auto">
-            {BOROUGHS.map((b) => (
+        {/* ── Borough Filter ─────────────────────────────────────── */}
+        <div className="overflow-x-auto no-scrollbar -mx-4 px-4">
+          <div className="flex gap-1.5 w-max">
+            {BOROUGHS.map(b => (
               <button
                 key={b}
                 onClick={() => setActiveBorough(b)}
-                className={`px-3 py-1.5 rounded-xl text-[12px] font-semibold transition-all shrink-0 ${
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all shrink-0 ${
                   activeBorough === b
-                    ? "bg-[var(--fc-orange)] text-white"
-                    : "bg-white/[0.06] text-[var(--fc-muted)] hover:text-white hover:bg-white/10"
+                    ? "bg-white/10 text-white"
+                    : "text-[var(--fc-muted)] hover:text-white hover:bg-white/5"
                 }`}
               >
                 {b}
               </button>
             ))}
           </div>
+        </div>
 
-          {/* Project list */}
-          <h2 className="text-[13px] font-semibold text-white/60 uppercase tracking-wider mb-3">
-            Contracts
-            {activeBorough !== "All" && (
-              <span className="ml-2 text-[var(--fc-orange)] normal-case">— {activeBorough}</span>
-            )}
-            {searchQuery && (
-              <span className="ml-2 text-[var(--fc-muted)] normal-case text-[11px]">
-                ({filteredProjects.length} results)
-              </span>
-            )}
-          </h2>
-
-          {loading ? (
-            <div className="space-y-3">
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="glass-card p-4 h-28 skeleton-shimmer rounded-2xl" />
-              ))}
-            </div>
-          ) : filteredProjects.length === 0 ? (
-            <div className="glass-card p-8 text-center">
-              <p className="text-[var(--fc-muted)] text-sm">
-                {searchQuery ? `No contracts matching "${searchQuery}"` : "No contracts found."}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredProjects.map((p) => (
-                <ContractCard key={p.id} project={p} />
-              ))}
-            </div>
+        {/* ── Search Bar ─────────────────────────────────────────── */}
+        <div className="relative">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2">
+            <SearchIcon />
+          </div>
+          <input
+            type="text"
+            placeholder="Search parks, roads, bridges..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full h-10 pl-10 pr-10 rounded-xl bg-white/[0.06] border border-white/[0.08] text-white text-[13px] placeholder:text-[var(--fc-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--fc-orange)]/50 focus:border-transparent transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--fc-muted)] hover:text-white transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
           )}
-        </section>
+        </div>
+
+        {/* ── Results count ──────────────────────────────────────── */}
+        {!loading && (
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] text-[var(--fc-muted)]">
+              {projects.length.toLocaleString()} project{projects.length !== 1 ? "s" : ""}
+              {activeFilter !== "all" && ` · ${FILTER_TABS.find(t => t.key === activeFilter)?.label}`}
+              {activeBorough !== "All" && ` · ${activeBorough}`}
+            </p>
+            {searchQuery && (
+              <p className="text-[10px] text-[var(--fc-muted)]">
+                matching &ldquo;{searchQuery}&rdquo;
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ── Content ────────────────────────────────────────────── */}
+        {loading ? (
+          <LoadingState />
+        ) : error ? (
+          <div className="glass-card p-8 text-center">
+            <p className="text-[var(--fc-alert)] text-sm mb-3">{error}</p>
+            <button
+              onClick={loadData}
+              className="px-4 py-2 rounded-xl bg-[var(--fc-orange)] text-white text-[13px] font-semibold hover:bg-[var(--fc-orange-hover)] transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="glass-card p-10 text-center animate-fade-in">
+            <div className="text-4xl mb-3">🔍</div>
+            <p className="text-white font-semibold text-[14px] mb-1">No projects found</p>
+            <p className="text-[var(--fc-muted)] text-[12px]">
+              {searchQuery
+                ? `Nothing matching "${searchQuery}". Try a different search.`
+                : "No projects matching your filters."
+              }
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-3">
+              {visibleProjects.map((p, i) => (
+                <ProjectCard key={p.project_key} project={p} index={i} />
+              ))}
+            </div>
+
+            {hasMore && (
+              <button
+                onClick={() => setDisplayCount(prev => prev + 20)}
+                className="w-full py-3 rounded-xl bg-[var(--fc-surface)] border border-[var(--fc-glass-border)] text-[var(--fc-muted)] text-[13px] font-semibold hover:text-white hover:bg-white/10 transition-all"
+              >
+                Load more ({projects.length - displayCount} remaining)
+              </button>
+            )}
+          </>
+        )}
+
+        {/* ── Data source ────────────────────────────────────────── */}
+        <div className="pt-4 pb-2 text-center space-y-1.5">
+          <div className="flex items-center justify-center gap-1.5">
+            <IntelLogo size={14} />
+            <p className="text-[10px] text-[var(--fc-muted)]">
+              Powered by FatCats Intel
+            </p>
+            <span className="beta-badge animate-beta-pulse">Beta</span>
+          </div>
+          <p className="text-[9px] text-[var(--fc-muted)]/60">
+            Data from{" "}
+            <a
+              href="https://data.cityofnewyork.us/City-Government/Capital-Projects-Dashboard-Citywide-Budget-and-Sch/fb86-vt7u"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-white transition-colors"
+            >
+              NYC Open Data — Capital Projects Dashboard
+            </a>
+            . Updated 3×/year by OMB.
+          </p>
+        </div>
       </div>
     </AppShell>
   );
