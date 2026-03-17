@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Navbar from "./Navbar";
+import PageTransition from "./PageTransition";
 
 function FeedIcon({ active }: { active: boolean }) {
   return (
@@ -75,7 +76,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           paddingBottom: isSplash ? 0 : "var(--bottom-bar-height)",
         }}
       >
-        {children}
+        <PageTransition>{children}</PageTransition>
       </main>
 
       {!isSplash && (

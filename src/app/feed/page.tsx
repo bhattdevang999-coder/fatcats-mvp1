@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import AppShell from "@/components/AppShell";
 import ReportCard from "@/components/ReportCard";
+import AnimatedCard from "@/components/AnimatedCard";
+import { FeedSkeleton } from "@/components/Skeletons";
 import SinceYouLeftBanner from "@/components/SinceYouLeft";
 import { listReports, listNearbyReports } from "@/lib/reports";
 import { getPipelineIndex } from "@/lib/types";
@@ -410,16 +412,7 @@ export default function FeedPage() {
         {!loading && <ClusterStatsBanner feedItems={feedItems} />}
 
         {/* Loading state */}
-        {loading && (
-          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="glass-card h-[340px] animate-pulse bg-white/[0.03]"
-              />
-            ))}
-          </div>
-        )}
+        {loading && <FeedSkeleton />}
 
         {/* Location loading */}
         {tab === "near" && locationLoading && (
@@ -483,8 +476,10 @@ export default function FeedPage() {
         {/* Feed items — individual report cards */}
         {!loading && displayReports.length > 0 && (
           <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-5">
-            {displayReports.map((report) => (
-              <ReportCard key={report.id} report={report} />
+            {displayReports.map((report, i) => (
+              <AnimatedCard key={report.id} index={i}>
+                <ReportCard report={report} />
+              </AnimatedCard>
             ))}
           </div>
         )}

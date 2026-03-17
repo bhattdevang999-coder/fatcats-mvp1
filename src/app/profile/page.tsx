@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import StatusPill from "@/components/StatusPill";
+import { ProfileSkeleton } from "@/components/Skeletons";
 import { WatchdogBadge } from "@/components/BlockWatchdogCTA";
 import { listReportsByDevice } from "@/lib/reports";
 import { getDeviceHash } from "@/lib/device";
@@ -360,11 +361,7 @@ export default function ProfilePage() {
         </h2>
 
         {loading ? (
-          <div className="space-y-3">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="rounded-2xl h-16 skeleton-shimmer" />
-            ))}
-          </div>
+          <ProfileSkeleton />
         ) : reports.length === 0 ? (
           <div className="glass-card p-8 text-center">
             <div className="w-14 h-14 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center mx-auto mb-3">
