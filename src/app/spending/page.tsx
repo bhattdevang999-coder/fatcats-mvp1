@@ -14,6 +14,7 @@ import {
   formatDays,
   phaseLabel,
   phaseColor,
+  generateExposeSummary,
   type TrackedProject,
   type ProjectFilter,
 } from "@/lib/capital-projects";
@@ -21,6 +22,7 @@ import {
 // ── Filter config ──────────────────────────────────────────────────────
 
 const FILTER_TABS: { key: ProjectFilter; label: string; icon: string }[] = [
+  { key: "budget_blowups", label: "Budget Blowups", icon: "🔥" },
   { key: "all", label: "All", icon: "" },
   { key: "over_budget", label: "Over Budget", icon: "🔴" },
   { key: "behind_schedule", label: "Behind Schedule", icon: "⏳" },
@@ -103,7 +105,7 @@ function BudgetSparkline({ snapshots }: { snapshots: { total_budget: number }[] 
 
 // ── Project Card ───────────────────────────────────────────────────────
 
-function ProjectCard({ project, index }: { project: TrackedProject; index: number }) {
+function ProjectCard({ project, index, isBlowupView }: { project: TrackedProject; index: number; isBlowupView?: boolean }) {
   const spendPct = project.total_budget > 0
     ? Math.min((project.spend_to_date / project.total_budget) * 100, 100)
     : 0;
@@ -123,6 +125,15 @@ function ProjectCard({ project, index }: { project: TrackedProject; index: numbe
       className="glass-card p-4 animate-card-entrance"
       style={{ animationDelay: `${Math.min(index * 60, 400)}ms` }}
     >
+      {/* Scope Creep badge (blowup view only) */}
+      {isBlowupView && (
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[11px] font-black px-2.5 py-1 rounded-lg bg-red-500/15 text-red-400 border border-red-500/25 uppercase tracking-wider">
+            Scope Creep
+          </span>
+        </div>
+      )}
+
       {/* Top row: Phase + Borough + Agency */}
       <div className="flex items-center gap-2 mb-2.5 flex-wrap">
         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${phaseColor(project.current_phase)}`}>
@@ -146,6 +157,22 @@ function ProjectCard({ project, index }: { project: TrackedProject; index: numbe
         <p className="text-[12px] text-[var(--fc-muted)] leading-relaxed mb-3 line-clamp-2">
           {project.project_description}
         </p>
+      )}
+
+      {/* Original → Current budget (blowup view only) */}
+      {isBlowupView && (
+        <div className="mb-3 p-2.5 rounded-xl bg-red-500/[0.06] border border-red-500/10">
+          <div className="flex items-center gap-2 text-[12px] mb-1.5">
+            <span className="text-[var(--fc-muted)]">Original:</span>
+            <span className="font-bold text-white">{formatMoney(project.original_budget)}</span>
+            <span className="text-red-400">→</span>
+            <span className="text-[var(--fc-muted)]">Current:</span>
+            <span className="font-bold text-red-400">{formatMoney(project.total_budget)}</span>
+          </div>
+          <p className="text-[11px] text-[var(--fc-muted)] leading-relaxed italic">
+            {generateExposeSummary(project)}
+          </p>
+        </div>
       )}
 
       {/* Budget bar */}
@@ -175,7 +202,7 @@ function ProjectCard({ project, index }: { project: TrackedProject; index: numbe
       {/* Intelligence badges */}
       <div className="flex flex-wrap gap-1.5 mb-3">
         {project.is_over_budget && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20">
+          <span className={`inline-flex items-center gap-1 font-semibold px-2 py-1 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 ${isBlowupView ? "text-[12px]" : "text-[10px]"}`}>
             ↑ {formatMoney(Math.abs(project.budget_delta))} over (+{project.budget_delta_pct}%)
           </span>
         )}
@@ -263,35 +290,40 @@ export default function ContractTrackerPage() {
     totalProjects: number;
     overBudgetCount: number;
     behindScheduleCount: number;
+    totalOverrunAmount: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [activeFilter, setActiveFilter] = useState<ProjectFilter>("all");
+  const [activeFilter, setActiveFilter] = useState<ProjectFilter>("budget_blowups");
   const [activeBorough, setActiveBorough] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [displayCount, setDisplayCount] = useState(20);
+  const [topBlowups, setTopBlowups] = useState<TrackedProject[]>([]);
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [allStats, filtered] = await Promise.all([
+      const [allStats, filtered, blowups] = await Promise.all([
         getContractStats(),
         fetchTrackedProjects({
           filter: activeFilter,
           borough: activeBorough === "All" ? undefined : activeBorough,
           search: searchQuery.trim() || undefined,
         }),
+        fetchTrackedProjects({ filter: "budget_blowups", limit: 10 }),
       ]);
 
       setStats({
         totalProjects: allStats.totalProjects,
         overBudgetCount: allStats.overBudgetCount,
         behindScheduleCount: allStats.behindScheduleCount,
+        totalOverrunAmount: allStats.totalOverrunAmount,
       });
       setProjects(filtered);
+      setTopBlowups(blowups);
       setDisplayCount(20);
     } catch {
       setError("Failed to load contract data. Try refreshing.");
@@ -346,12 +378,50 @@ export default function ContractTrackerPage() {
               <p className="text-2xl font-black text-red-400">{stats.overBudgetCount}</p>
               <p className="text-[10px] text-red-400/70 font-semibold uppercase tracking-wider mt-0.5">Over Budget</p>
             </div>
-            <div className="glass-card-elevated p-3 text-center border-amber-500/10">
-              <p className="text-2xl font-black text-amber-400">{stats.behindScheduleCount}</p>
-              <p className="text-[10px] text-amber-400/70 font-semibold uppercase tracking-wider mt-0.5">Behind Sched.</p>
+            <div className="glass-card-elevated p-3 text-center border-red-500/10">
+              <p className="text-2xl font-black text-red-400">{formatMoney(stats.totalOverrunAmount)}</p>
+              <p className="text-[10px] text-red-400/70 font-semibold uppercase tracking-wider mt-0.5">Wasted</p>
             </div>
           </div>
         ) : null}
+
+        {/* ── Scope Creep Leaderboard — Top 10 ────────────────── */}
+        {!loading && activeFilter === "budget_blowups" && topBlowups.length > 0 && (
+          <div
+            className="glass-card p-4 animate-fade-in-up"
+            style={{
+              animationDelay: "150ms",
+              background: "linear-gradient(135deg, rgba(239,68,68,0.06) 0%, rgba(249,115,22,0.04) 50%, rgba(239,68,68,0.06) 100%)",
+            }}
+          >
+            <h3 className="text-[13px] font-black text-white mb-3 flex items-center gap-2">
+              <span>🏆</span> Worst Scope Creep — Top 10
+            </h3>
+            <div className="space-y-1.5">
+              {topBlowups.map((p, i) => (
+                <Link
+                  key={p.project_key}
+                  href={`/spending/${encodeURIComponent(p.fms_id)}`}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] transition-all group"
+                >
+                  <span className="text-[11px] font-black text-[var(--fc-muted)] w-5 shrink-0">#{i + 1}</span>
+                  <span className="text-[11px] text-white font-medium truncate flex-1 min-w-0 group-hover:text-[var(--fc-orange)] transition-colors">
+                    {p.project_name.length > 40 ? p.project_name.slice(0, 40) + "..." : p.project_name}
+                  </span>
+                  <span className="text-[9px] font-bold text-[var(--fc-orange)] bg-[var(--fc-orange)]/10 px-1.5 py-0.5 rounded uppercase shrink-0">
+                    {p.borough.length > 6 ? p.borough.slice(0, 6) : p.borough}
+                  </span>
+                  <span className="text-[10px] text-[var(--fc-muted)] shrink-0">
+                    {formatMoney(p.original_budget)} → {formatMoney(p.total_budget)}
+                  </span>
+                  <span className="text-[11px] font-black text-red-400 shrink-0">
+                    +{p.budget_delta_pct.toLocaleString()}%
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── Smart Filter Tabs ──────────────────────────────────── */}
         <div className="overflow-x-auto no-scrollbar -mx-4 px-4">
@@ -461,7 +531,7 @@ export default function ContractTrackerPage() {
           <>
             <div className="space-y-3">
               {visibleProjects.map((p, i) => (
-                <ProjectCard key={p.project_key} project={p} index={i} />
+                <ProjectCard key={p.project_key} project={p} index={i} isBlowupView={activeFilter === "budget_blowups"} />
               ))}
             </div>
 

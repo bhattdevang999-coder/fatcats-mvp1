@@ -65,7 +65,7 @@ export interface TrackedProject {
   latest_reporting_period: string;
 }
 
-export type ProjectFilter = "all" | "over_budget" | "behind_schedule" | "stalled" | "construction" | "completed";
+export type ProjectFilter = "all" | "budget_blowups" | "over_budget" | "behind_schedule" | "stalled" | "construction" | "completed";
 
 // ── Internal types for raw NYC data ────────────────────────────────────
 
@@ -284,6 +284,10 @@ function applyFilters(
 
   if (options?.filter && options.filter !== "all") {
     switch (options.filter) {
+      case "budget_blowups":
+        result = result.filter(p => p.is_over_budget && p.budget_delta_pct > 50);
+        result.sort((a, b) => b.budget_delta_pct - a.budget_delta_pct);
+        break;
       case "over_budget":
         result = result.filter(p => p.is_over_budget);
         result.sort((a, b) => b.budget_delta_pct - a.budget_delta_pct);
@@ -347,10 +351,13 @@ export async function getContractStats(): Promise<{
   overBudgetCount: number;
   behindScheduleCount: number;
   overBudgetTotal: number;
+  totalOverrunAmount: number;
 }> {
   const all = await fetchTrackedProjects();
   const overBudget = all.filter(p => p.is_over_budget);
   const behindSchedule = all.filter(p => p.is_behind_schedule);
+
+  const totalOverrunAmount = overBudget.reduce((s, p) => s + Math.max(0, p.budget_delta), 0);
 
   return {
     totalProjects: all.length,
@@ -358,8 +365,25 @@ export async function getContractStats(): Promise<{
     totalSpent: all.reduce((s, p) => s + p.spend_to_date, 0),
     overBudgetCount: overBudget.length,
     behindScheduleCount: behindSchedule.length,
-    overBudgetTotal: overBudget.reduce((s, p) => s + Math.max(0, p.budget_delta), 0),
+    overBudgetTotal: totalOverrunAmount,
+    totalOverrunAmount,
   };
+}
+
+// ── Expose Summary Generator ──────────────────────────────────────────
+
+export function generateExposeSummary(project: TrackedProject): string {
+  const spendPct = project.total_budget > 0
+    ? Math.round((project.spend_to_date / project.total_budget) * 100)
+    : 0;
+  let text = `This ${project.category || "capital"} project in ${project.borough} was originally budgeted at ${formatMoney(project.original_budget)}. It has since ballooned to ${formatMoney(project.total_budget)} — a ${project.budget_delta_pct}% increase. ${spendPct}% of the inflated budget has been spent so far.`;
+  if (project.is_overdue && project.days_overdue > 0) {
+    text += ` The project is ${formatDays(project.days_overdue)} overdue.`;
+  }
+  if (project.schedule_slip_days > 0) {
+    text += ` The timeline has slipped by ${formatDays(project.schedule_slip_days)}.`;
+  }
+  return text;
 }
 
 // ── Formatting helpers ────────────────────────────────────────────────

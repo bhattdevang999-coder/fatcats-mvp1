@@ -120,13 +120,20 @@ function BudgetTimeline({ snapshots }: { snapshots: ProjectSnapshot[] }) {
                   {formatMoney(snap.total_budget)}
                 </span>
               </div>
-              {delta !== 0 && (
-                <span className={`text-[10px] font-semibold mt-0.5 inline-block ${
-                  isIncrease ? "text-red-400" : "text-green-400"
-                }`}>
-                  {isIncrease ? "+" : ""}{formatMoney(delta)}
-                </span>
-              )}
+              <div className="flex items-center gap-3 mt-0.5">
+                {delta !== 0 && (
+                  <span className={`text-[10px] font-semibold ${
+                    isIncrease ? "text-red-400" : "text-green-400"
+                  }`}>
+                    {isIncrease ? "+" : ""}{formatMoney(delta)}
+                  </span>
+                )}
+                {snap.spend_to_date > 0 && (
+                  <span className="text-[10px] text-[var(--fc-muted)]">
+                    Spent: {formatMoney(snap.spend_to_date)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         );
