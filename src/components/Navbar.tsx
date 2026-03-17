@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { registerServiceWorker, requestPushPermission } from "@/lib/notifications";
+import { getUnreadCount, generateSessionNotification } from "@/lib/notifications";
+import NotificationCenter from "@/components/NotificationCenter";
 import { getStreak } from "@/lib/engagement";
 
 function BellIcon({ enabled }: { enabled: boolean }) {
@@ -22,6 +24,8 @@ export default function Navbar() {
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [showToast, setShowToast] = useState<string | null>(null);
   const [streak, setStreak] = useState(0);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -37,23 +41,33 @@ export default function Navbar() {
     }
     const s = getStreak();
     setStreak(s.current);
+    // Generate session notification + update unread count
+    generateSessionNotification();
+    setUnreadCount(getUnreadCount());
   }, []);
 
   const handleBell = useCallback(async () => {
-    if (notifEnabled) {
-      setShowToast("Notifications already enabled");
-      setTimeout(() => setShowToast(null), 2000);
+    // If push not enabled, request it first
+    if (!notifEnabled) {
+      const granted = await requestPushPermission();
+      if (granted) {
+        setNotifEnabled(true);
+        setShowToast("Notifications enabled");
+        setTimeout(() => setShowToast(null), 2500);
+      } else {
+        setShowToast("Notifications blocked — check browser settings");
+        setTimeout(() => setShowToast(null), 2500);
+      }
       return;
     }
-    const granted = await requestPushPermission();
-    if (granted) {
-      setNotifEnabled(true);
-      setShowToast("Notifications enabled");
-    } else {
-      setShowToast("Notifications blocked — check browser settings");
-    }
-    setTimeout(() => setShowToast(null), 2500);
+    // Toggle notification center
+    setNotifOpen((prev) => !prev);
   }, [notifEnabled]);
+
+  const handleNotifClose = useCallback(() => {
+    setNotifOpen(false);
+    setUnreadCount(getUnreadCount());
+  }, []);
 
   if (pathname === "/") return null;
 
@@ -99,8 +113,10 @@ export default function Navbar() {
               className={`w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white/5 transition-colors active:scale-90 relative ${notifEnabled ? "bg-[var(--fc-orange)]/10" : ""}`}
             >
               <BellIcon enabled={notifEnabled} />
-              {notifEnabled && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--fc-orange)]" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-[var(--fc-orange)] text-white text-[9px] font-bold px-1">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
               )}
             </button>
           </div>
@@ -112,6 +128,8 @@ export default function Navbar() {
           {showToast}
         </div>
       )}
+
+      <NotificationCenter open={notifOpen} onClose={handleNotifClose} />
     </>
   );
 }

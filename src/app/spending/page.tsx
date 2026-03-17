@@ -15,9 +15,11 @@ import {
   phaseLabel,
   phaseColor,
   generateExposeSummary,
+  findNearbyProjects,
   type TrackedProject,
   type ProjectFilter,
 } from "@/lib/capital-projects";
+import { getUserStats, getCurrentRank, RANK_CONFIG } from "@/lib/gamification";
 
 // ── Filter config ──────────────────────────────────────────────────────
 
@@ -300,6 +302,12 @@ export default function ContractTrackerPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [displayCount, setDisplayCount] = useState(20);
   const [topBlowups, setTopBlowups] = useState<TrackedProject[]>([]);
+  const [nearbyData, setNearbyData] = useState<{
+    count: number;
+    totalBudget: number;
+    worstOverrunPct: number;
+    worstProjectId: string | null;
+  } | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -336,6 +344,23 @@ export default function ContractTrackerPage() {
     loadData();
   }, [loadData]);
 
+  // Fetch nearby spending data
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          try {
+            const nearby = await findNearbyProjects(pos.coords.latitude, pos.coords.longitude, 2000);
+            if (nearby && nearby.count > 0) {
+              setNearbyData(nearby);
+            }
+          } catch {}
+        },
+        () => {}
+      );
+    }
+  }, []);
+
   const visibleProjects = projects.slice(0, displayCount);
   const hasMore = displayCount < projects.length;
 
@@ -351,7 +376,7 @@ export default function ContractTrackerPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold text-white leading-tight">
-                Contract Tracker
+                My Block
               </h1>
               <p className="text-[12px] text-[var(--fc-muted)] flex items-center gap-1.5 mt-0.5">
                 Follow the money. Every dollar. Every delay.
@@ -360,6 +385,58 @@ export default function ContractTrackerPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Your Activity ───────────────────────────────────── */}
+        {(() => {
+          const userStats = getUserStats();
+          const rank = getCurrentRank();
+          const rankConfig = RANK_CONFIG[rank];
+          const uncovered = userStats.totalSpendingUncovered;
+          if (userStats.budgetViewsCount === 0 && userStats.exposesCount === 0) return null;
+          return (
+            <div className="glass-card p-4 animate-fade-in-up" style={{ animationDelay: "50ms" }}>
+              <h3 className="text-[11px] font-bold text-[var(--fc-muted)] uppercase tracking-wider mb-2">Your Activity</h3>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[var(--fc-orange)]/10 border border-[var(--fc-orange)]/20 flex items-center justify-center text-[20px]">
+                  {rankConfig?.icon || "🐱"}
+                </div>
+                <div className="flex-1">
+                  <p className="text-[13px] font-bold text-white">{rankConfig?.label || "Kitten"}</p>
+                  <p className="text-[11px] text-[var(--fc-muted)]">
+                    {userStats.budgetViewsCount} projects viewed · {formatMoney(uncovered)} uncovered
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── What's Happening Near You ──────────────────────── */}
+        {nearbyData && (
+          <div
+            className="glass-card p-4 animate-fade-in-up border border-[var(--fc-orange)]/10"
+            style={{ animationDelay: "75ms" }}
+          >
+            <h3 className="text-[11px] font-bold text-[var(--fc-muted)] uppercase tracking-wider mb-2">Near You</h3>
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="text-[22px] font-black text-white">{formatMoney(nearbyData.totalBudget)}</span>
+            </div>
+            <p className="text-[12px] text-[var(--fc-muted)]">
+              in city spending across {nearbyData.count} project{nearbyData.count !== 1 ? "s" : ""} nearby
+            </p>
+            {nearbyData.worstOverrunPct > 0 && nearbyData.worstProjectId && (
+              <Link
+                href={`/spending/${encodeURIComponent(nearbyData.worstProjectId)}`}
+                className="text-[12px] text-[var(--fc-orange)] font-semibold mt-1 inline-block hover:underline"
+              >
+                Worst overrun: +{nearbyData.worstOverrunPct}% — See details →
+              </Link>
+            )}
+          </div>
+        )}
+
+        {/* ── The Big Picture ──────────────────────────────────── */}
+        <h3 className="text-[11px] font-bold text-[var(--fc-muted)] uppercase tracking-wider">The Big Picture</h3>
 
         {/* ── Stats Banner ───────────────────────────────────────── */}
         {loading ? (

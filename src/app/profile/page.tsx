@@ -16,6 +16,15 @@ import {
   computeBadges,
 } from "@/lib/engagement";
 import { getWatchdogProfile, getWatchdogTitle, getWatchdogEmoji, getLevelProgress } from "@/lib/watchdog";
+import {
+  getUserStats,
+  getCurrentRank,
+  getUnlockedRanks,
+  getNextRank,
+  RANK_CONFIG,
+  type CivicRank,
+} from "@/lib/gamification";
+import { formatMoney } from "@/lib/capital-projects";
 import type { WatchdogProfile } from "@/lib/watchdog";
 import type { Report } from "@/lib/types";
 
@@ -43,6 +52,9 @@ export default function ProfilePage() {
   const [showShareToast, setShowShareToast] = useState(false);
   const impactCardRef = useRef<HTMLDivElement>(null);
   const [watchdog, setWatchdog] = useState<WatchdogProfile | null>(null);
+  const [currentRank, setCurrentRank] = useState<CivicRank>("kitten");
+  const [unlockedRanks, setUnlockedRanks] = useState<CivicRank[]>([]);
+  const [spendingUncovered, setSpendingUncovered] = useState(0);
 
   useEffect(() => {
     async function load() {
@@ -55,6 +67,9 @@ export default function ProfilePage() {
     const s = getStreak();
     setStreak(s.current);
     setWatchdog(getWatchdogProfile());
+    setCurrentRank(getCurrentRank());
+    setUnlockedRanks(getUnlockedRanks());
+    setSpendingUncovered(getUserStats().totalSpendingUncovered);
   }, []);
 
   const totalWatchers = reports.reduce((sum, r) => sum + r.supporters_count, 0);
@@ -206,6 +221,88 @@ export default function ProfilePage() {
             </button>
           </div>
         )}
+
+        {/* ── Civic Rank Card ── */}
+        {(() => {
+          const rankConfig = RANK_CONFIG[currentRank];
+          const nextRank = getNextRank();
+          const nextConfig = nextRank ? RANK_CONFIG[nextRank.rank] : null;
+          const userStats = getUserStats();
+          return (
+            <div className="glass-card p-5 mb-5 animate-slide-up border border-[var(--fc-orange)]/15">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 rounded-2xl bg-[var(--fc-orange)]/10 border border-[var(--fc-orange)]/20 flex items-center justify-center">
+                  <span className="text-[32px]">{rankConfig?.icon}</span>
+                </div>
+                <div>
+                  <p className="text-[17px] font-black text-white">{rankConfig?.label}</p>
+                  <p className="text-[12px] text-[var(--fc-muted)]">&ldquo;{rankConfig?.description}&rdquo;</p>
+                </div>
+              </div>
+
+              {/* Spending uncovered */}
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--fc-orange)]/[0.06] border border-[var(--fc-orange)]/10 mb-3">
+                <span className="text-[20px]">💰</span>
+                <div>
+                  <p className="text-[18px] font-black text-white">{formatMoney(spendingUncovered)}</p>
+                  <p className="text-[11px] text-[var(--fc-muted)]">in government spending uncovered</p>
+                </div>
+              </div>
+
+              {/* Rank progress */}
+              {nextConfig && nextRank && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-[var(--fc-muted)]">
+                      Next: {nextConfig.icon} {nextConfig.label}
+                    </span>
+                    <span className="text-[11px] text-[var(--fc-orange)] font-bold">
+                      {nextRank.progress}%
+                    </span>
+                  </div>
+                  <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-[var(--fc-orange)] to-[#ff8c5a] rounded-full transition-all duration-500"
+                      style={{ width: `${nextRank.progress}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-[var(--fc-muted)]">
+                    {userStats.budgetViewsCount} projects viewed · {userStats.exposesCount} reports filed · {userStats.sharesCount} shares
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ── Achievement Ranks Grid ── */}
+        <div className="mb-5">
+          <h2 className="text-[13px] font-semibold text-white/60 uppercase tracking-wider mb-3">
+            Civic Ranks
+          </h2>
+          <div className="grid grid-cols-3 gap-2">
+            {(Object.keys(RANK_CONFIG) as CivicRank[]).map((rank) => {
+              const config = RANK_CONFIG[rank];
+              const isUnlocked = unlockedRanks.includes(rank);
+              return (
+                <div
+                  key={rank}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border ${
+                    isUnlocked
+                      ? "bg-[var(--fc-orange)]/[0.06] border-[var(--fc-orange)]/15"
+                      : "bg-white/[0.02] border-white/[0.04] opacity-40"
+                  }`}
+                >
+                  <span className="text-[24px]">{config.icon}</span>
+                  <span className="text-[10px] font-bold text-white text-center leading-tight">{config.label}</span>
+                  {isUnlocked && rank === currentRank && (
+                    <span className="text-[8px] font-bold text-[var(--fc-orange)] uppercase">Current</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         {/* ── Shareable Impact Card (Spotify Wrapped style) ── */}
         <div ref={impactCardRef} className="mb-5">

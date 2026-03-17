@@ -8,6 +8,8 @@ import { getDeviceHash, getNeighborhoodFromLatLng } from "@/lib/device";
 import type { AIClassification, GeoIntelligence } from "@/lib/geo-intelligence";
 import { getFullGeoIntelligence, estimateRepairCost } from "@/lib/geo-intelligence";
 import { getCouncilMemberByNeighborhood } from "@/lib/council-districts";
+import { findNearbyProjects, formatMoney } from "@/lib/capital-projects";
+import { incrementStat, recordStreakDay } from "@/lib/gamification";
 import { IntelLogo } from "@/components/FatCatsIntel";
 
 const CATEGORIES = [
@@ -66,6 +68,16 @@ export default function ReportNewPage() {
   // Geo-intelligence state
   const [geoIntel, setGeoIntel] = useState<GeoIntelligence | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
+
+  // Post-submission spending hook
+  const [showSpendingHook, setShowSpendingHook] = useState(false);
+  const [nearbySpending, setNearbySpending] = useState<{
+    count: number;
+    totalBudget: number;
+    worstOverrunPct: number;
+    worstProjectId: string | null;
+  } | null>(null);
+  const [submittedReportId, setSubmittedReportId] = useState<string | null>(null);
 
   // Request geolocation on mount
   useEffect(() => {
@@ -203,6 +215,24 @@ export default function ReportNewPage() {
       });
 
       if (report) {
+        // Track gamification
+        incrementStat("exposesCount");
+        recordStreakDay();
+
+        // Check for nearby spending data
+        if (lat != null && lng != null) {
+          try {
+            const nearby = await findNearbyProjects(lat, lng);
+            if (nearby && nearby.count > 0) {
+              setNearbySpending(nearby);
+              setSubmittedReportId(report.id);
+              setShowSpendingHook(true);
+              setSubmitting(false);
+              return; // Don't redirect yet — show hook
+            }
+          } catch {}
+        }
+
         router.push(`/expose/${report.id}`);
       } else {
         alert("Something went wrong. Please try again.");
@@ -663,6 +693,47 @@ export default function ReportNewPage() {
           </div>
         )}
       </div>
+
+      {/* Post-submission spending hook */}
+      {showSpendingHook && nearbySpending && (
+        <>
+          <div className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm" />
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <div className="glass-card-elevated p-6 max-w-sm w-full text-center animate-scale-in border border-[var(--fc-orange)]/20">
+              <p className="text-[13px] font-bold text-[var(--fc-orange)] uppercase tracking-widest mb-3">
+                While you&apos;re here...
+              </p>
+              <p className="text-[22px] font-black text-white mb-1">
+                {formatMoney(nearbySpending.totalBudget)}
+              </p>
+              <p className="text-[13px] text-[var(--fc-muted)] mb-1">
+                in city spending near your report across {nearbySpending.count} project{nearbySpending.count !== 1 ? "s" : ""}
+              </p>
+              {nearbySpending.worstOverrunPct > 0 && (
+                <p className="text-[12px] text-red-400 font-semibold mb-4">
+                  Worst overrun: +{nearbySpending.worstOverrunPct}%
+                </p>
+              )}
+              <div className="flex gap-2">
+                {nearbySpending.worstProjectId && (
+                  <button
+                    onClick={() => router.push(`/spending/${encodeURIComponent(nearbySpending.worstProjectId!)}`)}
+                    className="flex-1 h-11 rounded-xl bg-[var(--fc-orange)] hover:bg-[var(--fc-orange-hover)] text-white font-bold text-[13px] transition-colors active:scale-95"
+                  >
+                    See the receipts
+                  </button>
+                )}
+                <button
+                  onClick={() => router.push(`/expose/${submittedReportId}`)}
+                  className="flex-1 h-11 rounded-xl bg-white/[0.06] text-white/70 font-semibold text-[13px] border border-white/[0.08] hover:bg-white/[0.1] transition-colors active:scale-95"
+                >
+                  View my exposé
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </AppShell>
   );
 }

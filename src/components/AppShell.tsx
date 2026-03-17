@@ -55,11 +55,11 @@ function ProfileIcon({ active }: { active: boolean }) {
 }
 
 const NAV_ITEMS = [
-  { href: "/feed", Icon: FeedIcon },
-  { href: "/map", Icon: MapIcon },
-  { href: "/report/new", Icon: ReportIcon, isCenter: true },
-  { href: "/spending", Icon: ContractsIcon },
-  { href: "/profile", Icon: ProfileIcon },
+  { href: "/feed", Icon: FeedIcon, label: "Feed" },
+  { href: "/map", Icon: MapIcon, label: "Map" },
+  { href: "/report/new", Icon: ReportIcon, isCenter: true, label: "" },
+  { href: "/spending", Icon: ContractsIcon, label: "My Block" },
+  { href: "/profile", Icon: ProfileIcon, label: "Profile" },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -110,8 +110,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   <div className="transition-transform group-active:scale-90">
                     <item.Icon active={isActive} />
                   </div>
+                  {item.label && (
+                    <span className={`text-[9px] font-medium mt-0.5 ${isActive ? "text-[var(--fc-orange)]" : "text-[var(--fc-muted)]"}`}>
+                      {item.label}
+                    </span>
+                  )}
                   {isActive && (
-                    <div className="w-1 h-1 rounded-full bg-[var(--fc-orange)] mt-1.5" />
+                    <div className="w-1 h-1 rounded-full bg-[var(--fc-orange)] mt-0.5" />
                   )}
                 </Link>
               );

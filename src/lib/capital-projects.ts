@@ -424,6 +424,133 @@ export function phaseColor(phase: string): string {
   }
 }
 
+// ── Nearby Project Lookup ────────────────────────────────────────────
+
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000; // meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Approximate lat/lng for NYC boroughs (for projects without coordinates)
+const BOROUGH_CENTERS: Record<string, { lat: number; lng: number }> = {
+  Manhattan: { lat: 40.7831, lng: -73.9712 },
+  Brooklyn: { lat: 40.6782, lng: -73.9442 },
+  Queens: { lat: 40.7282, lng: -73.7949 },
+  Bronx: { lat: 40.8448, lng: -73.8648 },
+  "Staten Island": { lat: 40.5795, lng: -74.1502 },
+  Citywide: { lat: 40.7128, lng: -74.0060 },
+};
+
+function getProjectCoords(project: TrackedProject): { lat: number; lng: number } | null {
+  // Projects don't have real coordinates in CPDB, so approximate by borough + slight randomization
+  const center = BOROUGH_CENTERS[project.borough];
+  if (!center) return null;
+  // Deterministic offset based on project_key hash
+  let hash = 0;
+  for (let i = 0; i < project.project_key.length; i++) {
+    hash = ((hash << 5) - hash + project.project_key.charCodeAt(i)) | 0;
+  }
+  const latOffset = ((hash % 1000) / 1000) * 0.06 - 0.03;
+  const lngOffset = (((hash >> 10) % 1000) / 1000) * 0.08 - 0.04;
+  return { lat: center.lat + latOffset, lng: center.lng + lngOffset };
+}
+
+/**
+ * Find the worst over-budget project within radius meters of a point.
+ * Used for MoneyPill in feed.
+ */
+export async function findNearbyOverBudgetProject(
+  lat: number,
+  lng: number,
+  radiusMeters = 800
+): Promise<(TrackedProject & { distance: number; approxLat: number; approxLng: number }) | null> {
+  const all = await fetchTrackedProjects();
+  const overBudget = all.filter(p => p.is_over_budget && p.budget_delta_pct > 50);
+
+  let best: (TrackedProject & { distance: number; approxLat: number; approxLng: number }) | null = null;
+
+  for (const p of overBudget) {
+    const coords = getProjectCoords(p);
+    if (!coords) continue;
+    const dist = haversineDistance(lat, lng, coords.lat, coords.lng);
+    if (dist <= radiusMeters) {
+      if (!best || p.budget_delta_pct > best.budget_delta_pct) {
+        best = { ...p, distance: dist, approxLat: coords.lat, approxLng: coords.lng };
+      }
+    }
+  }
+
+  return best;
+}
+
+/**
+ * Find all projects near a point (for post-submission hook).
+ */
+export async function findNearbyProjects(
+  lat: number,
+  lng: number,
+  radiusMeters = 1000
+): Promise<{
+  count: number;
+  totalBudget: number;
+  worstOverrunPct: number;
+  worstProjectId: string;
+  projects: (TrackedProject & { approxLat: number; approxLng: number })[];
+}> {
+  const all = await fetchTrackedProjects();
+  const nearby: (TrackedProject & { approxLat: number; approxLng: number })[] = [];
+
+  for (const p of all) {
+    const coords = getProjectCoords(p);
+    if (!coords) continue;
+    const dist = haversineDistance(lat, lng, coords.lat, coords.lng);
+    if (dist <= radiusMeters) {
+      nearby.push({ ...p, approxLat: coords.lat, approxLng: coords.lng });
+    }
+  }
+
+  let worstPct = 0;
+  let worstId = "";
+  for (const p of nearby) {
+    if (p.budget_delta_pct > worstPct) {
+      worstPct = p.budget_delta_pct;
+      worstId = p.fms_id;
+    }
+  }
+
+  return {
+    count: nearby.length,
+    totalBudget: nearby.reduce((sum, p) => sum + p.total_budget, 0),
+    worstOverrunPct: Math.round(worstPct),
+    worstProjectId: worstId,
+    projects: nearby,
+  };
+}
+
+/**
+ * Get all projects with approximate coordinates (for map layer).
+ */
+export async function getProjectsWithCoords(): Promise<
+  (TrackedProject & { approxLat: number; approxLng: number })[]
+> {
+  const all = await fetchTrackedProjects();
+  const result: (TrackedProject & { approxLat: number; approxLng: number })[] = [];
+
+  for (const p of all) {
+    const coords = getProjectCoords(p);
+    if (coords) {
+      result.push({ ...p, approxLat: coords.lat, approxLng: coords.lng });
+    }
+  }
+
+  return result;
+}
+
 /** Agency acronym → full name */
 export function agencyName(code: string | null): string {
   const map: Record<string, string> = {

@@ -1,0 +1,40 @@
+"use client";
+
+import Link from "next/link";
+import { formatMoney } from "@/lib/capital-projects";
+
+interface MoneyPillProps {
+  projectName: string;
+  originalBudget: number;
+  currentBudget: number;
+  deltaPct: number;
+  projectId: string;
+}
+
+export default function MoneyPill({
+  projectName,
+  originalBudget,
+  currentBudget,
+  deltaPct,
+  projectId,
+}: MoneyPillProps) {
+  return (
+    <Link
+      href={`/spending/${encodeURIComponent(projectId)}`}
+      className="block mt-3 px-3 py-3 rounded-xl bg-[rgba(255,107,53,0.08)] border border-[var(--fc-orange)]/20 hover:bg-[var(--fc-orange)]/10 transition-all active:scale-[0.98] group"
+    >
+      {/* LINE 1: The shock */}
+      <p className="text-[15px] font-bold text-white leading-tight">
+        💰 {formatMoney(originalBudget)} → {formatMoney(currentBudget)}
+      </p>
+      {/* LINE 2: The context */}
+      <p className="text-[12px] text-[var(--fc-muted)] mt-0.5 truncate">
+        {projectName.length > 35 ? projectName.slice(0, 35) + "..." : projectName}. +{deltaPct.toLocaleString()}% over.
+      </p>
+      {/* LINE 3: The hook */}
+      <p className="text-[12px] text-[var(--fc-orange)] font-semibold mt-1 group-hover:underline">
+        Where&apos;s this money going? →
+      </p>
+    </Link>
+  );
+}

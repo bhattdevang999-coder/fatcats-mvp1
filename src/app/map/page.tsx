@@ -7,6 +7,8 @@ import StatusPill from "@/components/StatusPill";
 import { MapSkeleton } from "@/components/Skeletons";
 import { listMapReports } from "@/lib/reports";
 import { getPipelineIndex } from "@/lib/types";
+import ProjectMapCard from "@/components/ProjectMapCard";
+import { getProjectsWithCoords, type TrackedProject } from "@/lib/capital-projects";
 import type { Report } from "@/lib/types";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -79,6 +81,13 @@ export default function MapPage() {
   // Bottom sheet state
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
+  // Project layer
+  type MapLayer = "reports" | "projects" | "both";
+  const [mapLayer, setMapLayer] = useState<MapLayer>("reports");
+  const [capitalProjects, setCapitalProjects] = useState<(TrackedProject & { approxLat: number; approxLng: number })[]>([]);
+  const [selectedProject, setSelectedProject] = useState<TrackedProject | null>(null);
+  const projectMarkersRef = useRef<mapboxgl.Marker[]>([]);
+
   // Load reports
   useEffect(() => {
     async function load() {
@@ -88,6 +97,15 @@ export default function MapPage() {
     }
     load();
   }, [category, status]);
+
+  // Load capital projects when layer includes them
+  useEffect(() => {
+    if (mapLayer === "reports") return;
+    if (capitalProjects.length > 0) return; // already loaded
+    getProjectsWithCoords().then((data) => {
+      setCapitalProjects(data);
+    }).catch(() => {});
+  }, [mapLayer, capitalProjects.length]);
 
   // Initialize map
   useEffect(() => {
@@ -262,6 +280,50 @@ export default function MapPage() {
     }
   }, [reports, loaded]);
 
+  // Update project markers
+  useEffect(() => {
+    if (!mapRef.current || !loaded || !mapboxglRef.current) return;
+    const mapboxgl = mapboxglRef.current;
+
+    // Remove old project markers
+    projectMarkersRef.current.forEach((m) => m.remove());
+    projectMarkersRef.current = [];
+
+    if (mapLayer === "reports") return;
+
+    capitalProjects.forEach((p) => {
+      const el = document.createElement("div");
+      el.className = "project-marker";
+      el.style.width = "14px";
+      el.style.height = "14px";
+      el.style.borderRadius = "50%";
+      el.style.cursor = "pointer";
+      el.style.border = "2px solid #0F172A";
+      el.style.transition = "transform 0.15s ease";
+      // Color by overrun severity
+      if (p.budget_delta_pct > 100) {
+        el.style.background = "#EF4444"; // red
+      } else if (p.budget_delta_pct > 25) {
+        el.style.background = "#F59E0B"; // amber
+      } else {
+        el.style.background = "#22C55E"; // green
+      }
+
+      el.addEventListener("mouseenter", () => { el.style.transform = "scale(1.5)"; });
+      el.addEventListener("mouseleave", () => { el.style.transform = "scale(1)"; });
+      el.addEventListener("click", () => {
+        setSelectedReport(null);
+        setSelectedProject(p);
+      });
+
+      const marker = new mapboxgl.default.Marker({ element: el })
+        .setLngLat([p.approxLng, p.approxLat])
+        .addTo(mapRef.current!);
+
+      projectMarkersRef.current.push(marker);
+    });
+  }, [capitalProjects, loaded, mapLayer]);
+
   // My Location handler
   const handleMyLocation = () => {
     if (!mapRef.current || !navigator.geolocation) return;
@@ -318,6 +380,26 @@ export default function MapPage() {
           </div>
         </div>
 
+        {/* Layer toggle */}
+        <div className="absolute top-2 right-3 z-10 flex rounded-xl overflow-hidden bg-[var(--fc-deep)]/90 backdrop-blur-md border border-white/[0.08]">
+          {(["reports", "projects", "both"] as MapLayer[]).map((layer) => (
+            <button
+              key={layer}
+              onClick={() => {
+                setMapLayer(layer);
+                setSelectedProject(null);
+              }}
+              className={`px-3 py-1.5 text-[10px] font-semibold transition-all ${
+                mapLayer === layer
+                  ? "bg-[var(--fc-orange)] text-white"
+                  : "text-white/60 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              {layer === "reports" ? "Reports" : layer === "projects" ? "City Projects" : "Both"}
+            </button>
+          ))}
+        </div>
+
         {/* My Location button */}
         <button
           onClick={handleMyLocation}
@@ -335,15 +417,32 @@ export default function MapPage() {
 
         {/* Legend */}
         <div className="absolute bottom-4 left-3 z-10 flex items-center gap-3 px-3 py-2 rounded-xl bg-[var(--fc-deep)]/90 backdrop-blur-md border border-white/[0.06]">
-          <div className="flex items-center gap-1.5">
-            <img src={createCatMarkerSVG("#E8652B", 20)} alt="" width="16" height="16" />
-            <span className="text-[10px] text-white/70 font-medium">Residents</span>
-          </div>
-          <div className="w-px h-3 bg-white/10" />
-          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#A0734A]/70 border border-[#0F172A]" />
-            <span className="text-[10px] text-white/70 font-medium">311 Data</span>
-          </div>
+          {mapLayer !== "projects" && (
+            <>
+              <div className="flex items-center gap-1.5">
+                <img src={createCatMarkerSVG("#E8652B", 20)} alt="" width="16" height="16" />
+                <span className="text-[10px] text-white/70 font-medium">Residents</span>
+              </div>
+              <div className="w-px h-3 bg-white/10" />
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#A0734A]/70 border border-[#0F172A]" />
+                <span className="text-[10px] text-white/70 font-medium">311 Data</span>
+              </div>
+            </>
+          )}
+          {mapLayer !== "reports" && (
+            <>
+              {mapLayer === "both" && <div className="w-px h-3 bg-white/10" />}
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#EF4444] border border-[#0F172A]" />
+                <span className="text-[10px] text-white/70 font-medium">Over Budget</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#22C55E] border border-[#0F172A]" />
+                <span className="text-[10px] text-white/70 font-medium">On Track</span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Map */}
@@ -362,8 +461,13 @@ export default function MapPage() {
           </div>
         )}
 
+        {/* Bottom sheet for selected project */}
+        {selectedProject && (
+          <ProjectMapCard project={selectedProject} onClose={() => setSelectedProject(null)} />
+        )}
+
         {/* Bottom sheet for selected report */}
-        {selectedReport && (
+        {selectedReport && !selectedProject && (
           <>
             <div className="fixed inset-0 z-20" onClick={() => setSelectedReport(null)} />
             <div className="fixed bottom-[var(--bottom-bar-height)] left-0 right-0 z-30 animate-slide-up">

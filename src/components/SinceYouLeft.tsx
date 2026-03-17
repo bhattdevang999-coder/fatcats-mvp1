@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import type { Report } from "@/lib/types";
 import { getSinceYouLeft } from "@/lib/engagement";
+import { findNearbyProjects, formatMoney } from "@/lib/capital-projects";
 
 interface Props {
   reports: Report[];
@@ -11,9 +12,24 @@ interface Props {
 export default function SinceYouLeftBanner({ reports }: Props) {
   const [sinceData, setSinceData] = useState<ReturnType<typeof getSinceYouLeft> | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [nearbySpending, setNearbySpending] = useState<{ count: number; totalBudget: number } | null>(null);
 
   useEffect(() => {
     setSinceData(getSinceYouLeft());
+    // Fetch nearby spending for the banner
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          try {
+            const nearby = await findNearbyProjects(pos.coords.latitude, pos.coords.longitude);
+            if (nearby && nearby.count > 0) {
+              setNearbySpending({ count: nearby.count, totalBudget: nearby.totalBudget });
+            }
+          } catch {}
+        },
+        () => {}
+      );
+    }
   }, []);
 
   // Compute changes since last visit
@@ -102,6 +118,17 @@ export default function SinceYouLeftBanner({ reports }: Props) {
               </span>
               <span className="text-[12px] text-[var(--fc-muted)]">
                 new hotspot{changes.hotspots !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
+          {nearbySpending && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[13px]">💰</span>
+              <span className="text-[13px] text-[var(--fc-orange)] font-semibold">
+                {formatMoney(nearbySpending.totalBudget)}
+              </span>
+              <span className="text-[12px] text-[var(--fc-muted)]">
+                in {nearbySpending.count} projects near you
               </span>
             </div>
           )}

@@ -17,6 +17,8 @@ import {
   type TrackedProject,
   type ProjectSnapshot,
 } from "@/lib/capital-projects";
+import { getChangeOrderStats, inferWhyItHappened, type WhyItHappened } from "@/lib/change-orders";
+import SpendingShareCard from "@/components/SpendingShareCard";
 
 // ── Phase timeline config ──────────────────────────────────────────────
 
@@ -213,6 +215,7 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [whyItHappened, setWhyItHappened] = useState<WhyItHappened | null>(null);
 
   useEffect(() => {
     if (!fmsId) return;
@@ -224,6 +227,14 @@ export default function ProjectDetailPage() {
           setError("Project not found.");
         } else {
           setProject(p);
+          // Fetch change order stats for Why It Happened
+          if (p.is_over_budget && p.managing_agency) {
+            try {
+              const stats = await getChangeOrderStats(p.managing_agency);
+              const why = inferWhyItHappened(p, stats);
+              setWhyItHappened(why);
+            } catch {}
+          }
         }
       } catch {
         setError("Failed to load project data.");
@@ -405,6 +416,54 @@ export default function ProjectDetailPage() {
               </div>
             )}
 
+            {/* ── Why It Happened ─────────────────────────────────── */}
+            {whyItHappened && (
+              <div className="glass-card-elevated p-4 animate-fade-in-up" style={{ animationDelay: "225ms" }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <IntelLogo size={20} />
+                  <h3 className="text-sm font-semibold text-white">Why It Happened</h3>
+                  <span className="beta-badge">Beta</span>
+                </div>
+
+                {whyItHappened.publicRecords.length > 0 && (
+                  <div className="space-y-2 mb-3">
+                    <p className="text-[10px] text-[var(--fc-muted)] uppercase tracking-wider font-semibold">Public Records</p>
+                    {whyItHappened.publicRecords.map((record, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <span className="text-[12px] mt-0.5 shrink-0">📄</span>
+                        <p className="text-[12px] text-[var(--fc-text)] leading-relaxed">{record}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {whyItHappened.likelyFactors.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] text-[var(--fc-muted)] uppercase tracking-wider font-semibold">Likely Factors</p>
+                    {whyItHappened.likelyFactors.map((factor, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <div className="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-amber-400" />
+                        <p className="text-[12px] text-[var(--fc-text)] leading-relaxed">{factor}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {whyItHappened.categoryAvgOverrun > 0 && (
+                  <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                    <span className="text-[12px]">📊</span>
+                    <p className="text-[11px] text-[var(--fc-muted)]">
+                      Average overrun for this category: <span className="text-white font-semibold">+{whyItHappened.categoryAvgOverrun}%</span>
+                    </p>
+                  </div>
+                )}
+
+                <p className="text-[9px] text-[var(--fc-muted)] mt-3 pt-2 border-t border-white/[0.04]">
+                  Inferred from NYC Open Data change orders and capital project patterns. Not a legal finding.
+                </p>
+              </div>
+            )}
+
             {/* ── Who's Managing This ────────────────────────────── */}
             <div className="glass-card-elevated p-4 animate-fade-in-up" style={{ animationDelay: "250ms" }}>
               <div className="flex items-center gap-2 mb-3">
@@ -492,6 +551,12 @@ export default function ProjectDetailPage() {
             {/* Comments */}
             <div className="glass-card p-4 animate-fade-in-up" style={{ animationDelay: "400ms" }}>
               <CommentSection itemId={`project_${project.fms_id}`} maxVisible={3} />
+            </div>
+
+            {/* Share Options */}
+            <div className="glass-card p-4 animate-fade-in-up" style={{ animationDelay: "425ms" }}>
+              <h3 className="text-[13px] font-bold text-white mb-3">Share this discovery</h3>
+              <SpendingShareCard project={project} />
             </div>
 
             <div className="pt-2 pb-2 text-center space-y-1.5">

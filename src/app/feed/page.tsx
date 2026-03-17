@@ -12,6 +12,9 @@ import { clusterReports } from "@/lib/feed-clustering";
 import { getFollowedReportIds } from "@/lib/follows";
 import { estimateRepairCost } from "@/lib/geo-intelligence";
 import { BlockWatchdogClaimCTA, InlineClaimCTA, NeighborhoodLeaderboard } from "@/components/BlockWatchdogCTA";
+import MoneyPill from "@/components/MoneyPill";
+import DidYouKnowCard, { getDidYouKnowFact } from "@/components/DidYouKnowCard";
+import { findNearbyOverBudgetProject } from "@/lib/capital-projects";
 import type { Report } from "@/lib/types";
 import type { FeedItem } from "@/lib/feed-clustering";
 
@@ -188,6 +191,9 @@ export default function FeedPage() {
   const [showScrollHint, setShowScrollHint] = useState(true);
   const [detectedNeighborhood, setDetectedNeighborhood] = useState<string | null>(null);
   const [nearbyRadius, setNearbyRadius] = useState<number>(3);
+  const [nearbyProject, setNearbyProject] = useState<{
+    fms_id: string; project_name: string; original_budget: number; total_budget: number; budget_delta_pct: number;
+  } | null>(null);
 
   const loadReports = useCallback(async () => {
     const data = await listReports({ limit: 200 });
@@ -252,6 +258,13 @@ export default function FeedPage() {
           setNearby(data);
           setLocationLoading(false);
           setTab("near");
+
+          // Fetch nearby over-budget project for MoneyPill
+          try {
+            const proj = await findNearbyOverBudgetProject(lat, lng);
+            if (proj) setNearbyProject(proj);
+          } catch {}
+
         },
         () => {
           setLocationLoading(false);
@@ -473,13 +486,31 @@ export default function FeedPage() {
           </div>
         )}
 
-        {/* Feed items — individual report cards */}
+        {/* Feed items — individual report cards with MoneyPill + DidYouKnow interstitials */}
         {!loading && displayReports.length > 0 && (
           <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-5">
             {displayReports.map((report, i) => (
-              <AnimatedCard key={report.id} index={i}>
-                <ReportCard report={report} />
-              </AnimatedCard>
+              <div key={report.id}>
+                <AnimatedCard index={i}>
+                  <ReportCard report={report} />
+                  {/* MoneyPill after 3rd card (once) */}
+                  {i === 2 && nearbyProject && (
+                    <MoneyPill
+                      projectName={nearbyProject.project_name}
+                      originalBudget={nearbyProject.original_budget}
+                      currentBudget={nearbyProject.total_budget}
+                      deltaPct={nearbyProject.budget_delta_pct}
+                      projectId={nearbyProject.fms_id}
+                    />
+                  )}
+                </AnimatedCard>
+                {/* DidYouKnow interstitial every ~6th card */}
+                {i > 0 && (i + 1) % 6 === 0 && (
+                  <div className="mt-4">
+                    <DidYouKnowCard {...getDidYouKnowFact(Math.floor(i / 6))} />
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}
