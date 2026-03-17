@@ -258,15 +258,25 @@ export default function ReportCard({ report }: { report: Report }) {
         {/* Hero image */}
         <div className="w-full h-[180px] bg-[var(--fc-surface-2)] relative overflow-hidden">
           {heroSrc ? (
-            <img src={heroSrc} alt="" className="w-full h-full object-cover" loading="lazy" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#8B95A8" strokeWidth="1.5">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                <circle cx="12" cy="9" r="2.5" />
-              </svg>
-            </div>
-          )}
+            <img
+              src={heroSrc}
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+                (e.target as HTMLImageElement).parentElement!.classList.add("fallback-image");
+              }}
+            />
+          ) : null}
+          {/* Branded fallback layer (always behind) */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-[var(--fc-surface)] to-[var(--fc-bg)] -z-10">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--fc-orange)" strokeWidth="1.2" strokeLinecap="round" opacity="0.3">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+              <circle cx="12" cy="9" r="2.5" />
+            </svg>
+            <span className="text-[11px] text-[var(--fc-muted)] mt-2 opacity-50">311 Report</span>
+          </div>
           <div className="absolute inset-0 bg-gradient-to-t from-[var(--fc-surface)]/80 via-transparent to-transparent" />
           <div className="absolute bottom-3 left-3">
             <StatusPill status={report.status} />

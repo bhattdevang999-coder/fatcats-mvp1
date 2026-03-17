@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import StatusPill from "@/components/StatusPill";
+import { MapSkeleton } from "@/components/Skeletons";
 import { listMapReports } from "@/lib/reports";
 import { getPipelineIndex } from "@/lib/types";
 import type { Report } from "@/lib/types";
@@ -347,6 +348,13 @@ export default function MapPage() {
 
         {/* Map */}
         <div ref={mapContainer} className="flex-1" />
+
+        {/* Map loading skeleton */}
+        {!loaded && MAPBOX_TOKEN && (
+          <div className="absolute inset-0" style={{ top: "var(--top-bar-height)" }}>
+            <MapSkeleton />
+          </div>
+        )}
 
         {!MAPBOX_TOKEN && (
           <div className="absolute inset-0 flex items-center justify-center bg-[var(--fc-deep)]">
