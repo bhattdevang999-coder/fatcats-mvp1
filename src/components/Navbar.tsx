@@ -22,7 +22,6 @@ export default function Navbar() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(false);
-  const [showToast, setShowToast] = useState<string | null>(null);
   const [streak, setStreak] = useState(0);
   const [notifOpen, setNotifOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -47,21 +46,16 @@ export default function Navbar() {
   }, []);
 
   const handleBell = useCallback(async () => {
-    // If push not enabled, request it first
-    if (!notifEnabled) {
-      const granted = await requestPushPermission();
-      if (granted) {
-        setNotifEnabled(true);
-        setShowToast("Notifications enabled");
-        setTimeout(() => setShowToast(null), 2500);
-      } else {
-        setShowToast("Notifications blocked — check browser settings");
-        setTimeout(() => setShowToast(null), 2500);
-      }
-      return;
-    }
-    // Toggle notification center
+    // Always toggle the notification center panel
     setNotifOpen((prev) => !prev);
+    // If push not yet enabled, request permission in the background (non-blocking)
+    if (!notifEnabled && "Notification" in window && Notification.permission === "default") {
+      requestPushPermission().then((granted) => {
+        if (granted) {
+          setNotifEnabled(true);
+        }
+      }).catch(() => {});
+    }
   }, [notifEnabled]);
 
   const handleNotifClose = useCallback(() => {
@@ -122,12 +116,6 @@ export default function Navbar() {
           </div>
         </nav>
       </header>
-
-      {showToast && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 bg-[var(--fc-surface)]/90 backdrop-blur-xl border border-white/10 text-white text-sm px-5 py-2.5 rounded-xl animate-slide-up z-[60] shadow-xl">
-          {showToast}
-        </div>
-      )}
 
       <NotificationCenter open={notifOpen} onClose={handleNotifClose} />
     </>

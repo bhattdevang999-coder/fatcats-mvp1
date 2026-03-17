@@ -216,6 +216,9 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [whyItHappened, setWhyItHappened] = useState<WhyItHappened | null>(null);
+  const [communityContexts, setCommunityContexts] = useState<{ text: string; date: string }[]>([]);
+  const [contextInput, setContextInput] = useState("");
+  const [contextSubmitted, setContextSubmitted] = useState(false);
 
   useEffect(() => {
     if (!fmsId) return;
@@ -243,7 +246,25 @@ export default function ProjectDetailPage() {
       }
     }
     load();
+    // Load community contexts from localStorage
+    try {
+      const stored = localStorage.getItem(`fc_context_${fmsId}`);
+      if (stored) setCommunityContexts(JSON.parse(stored));
+    } catch {}
   }, [fmsId]);
+
+  const handleSubmitContext = () => {
+    if (!contextInput.trim() || !fmsId) return;
+    const newEntry = { text: contextInput.trim(), date: new Date().toISOString() };
+    const updated = [...communityContexts, newEntry];
+    setCommunityContexts(updated);
+    setContextInput("");
+    setContextSubmitted(true);
+    setTimeout(() => setContextSubmitted(false), 2500);
+    try {
+      localStorage.setItem(`fc_context_${fmsId}`, JSON.stringify(updated));
+    } catch {}
+  };
 
   const handleShare = () => {
     if (!project) return;
@@ -463,6 +484,42 @@ export default function ProjectDetailPage() {
                 </p>
               </div>
             )}
+
+            {/* ── Community Context ──────────────────────────────── */}
+            <div className="glass-card-elevated p-4 animate-fade-in-up" style={{ animationDelay: "237ms" }}>
+              <h3 className="text-sm font-semibold text-white mb-3">💬 Community Context</h3>
+              {communityContexts.length === 0 ? (
+                <p className="text-[12px] text-[var(--fc-muted)] mb-3">No context added yet</p>
+              ) : (
+                <div className="space-y-2 mb-3">
+                  {communityContexts.map((ctx, i) => (
+                    <div key={i} className="px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                      <p className="text-[12px] text-[var(--fc-text)] leading-relaxed">{ctx.text}</p>
+                      <p className="text-[9px] text-[var(--fc-muted)] mt-1">
+                        {new Date(ctx.date).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <textarea
+                rows={3}
+                value={contextInput}
+                onChange={(e) => setContextInput(e.target.value)}
+                placeholder="Engineers, officials, locals — share what you know"
+                className="w-full px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white text-[13px] placeholder:text-[var(--fc-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--fc-orange)]/50 focus:border-transparent transition-all resize-none"
+              />
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-[9px] text-[var(--fc-muted)]">Verified contributors get a special badge</p>
+                <button
+                  onClick={handleSubmitContext}
+                  disabled={!contextInput.trim()}
+                  className="px-3 py-1.5 rounded-lg bg-[var(--fc-orange)] text-white text-[11px] font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--fc-orange-hover)] transition-colors active:scale-95"
+                >
+                  {contextSubmitted ? "Added!" : "Add Context"}
+                </button>
+              </div>
+            </div>
 
             {/* ── Who's Managing This ────────────────────────────── */}
             <div className="glass-card-elevated p-4 animate-fade-in-up" style={{ animationDelay: "250ms" }}>

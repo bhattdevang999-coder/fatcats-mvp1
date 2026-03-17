@@ -202,6 +202,28 @@ export default function FeedPage() {
     setRefreshing(false);
   }, []);
 
+  // Fetch a default MoneyPill project (worst over-budget) so it shows even without geolocation
+  useEffect(() => {
+    async function loadDefaultMoneyPill() {
+      try {
+        const { fetchTrackedProjects } = await import("@/lib/capital-projects");
+        const blowups = await fetchTrackedProjects({ filter: "budget_blowups", limit: 1 });
+        if (blowups.length > 0 && !nearbyProject) {
+          const p = blowups[0];
+          setNearbyProject({
+            fms_id: p.fms_id,
+            project_name: p.project_name,
+            original_budget: p.original_budget,
+            total_budget: p.total_budget,
+            budget_delta_pct: p.budget_delta_pct,
+          });
+        }
+      } catch {}
+    }
+    loadDefaultMoneyPill();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     loadReports();
   }, [loadReports]);
@@ -491,10 +513,18 @@ export default function FeedPage() {
           <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-5">
             {displayReports.map((report, i) => (
               <div key={report.id}>
+                {/* DidYouKnow interstitial every 6th card (before the card) */}
+                {i > 0 && i % 6 === 0 && (
+                  <div className="mb-4">
+                    <DidYouKnowCard {...getDidYouKnowFact(Math.floor(i / 6) - 1)} />
+                  </div>
+                )}
                 <AnimatedCard index={i}>
                   <ReportCard report={report} />
-                  {/* MoneyPill after 3rd card (once) */}
-                  {i === 2 && nearbyProject && (
+                </AnimatedCard>
+                {/* MoneyPill after 3rd card (once) */}
+                {i === 2 && nearbyProject && (
+                  <div className="mt-4">
                     <MoneyPill
                       projectName={nearbyProject.project_name}
                       originalBudget={nearbyProject.original_budget}
@@ -502,12 +532,6 @@ export default function FeedPage() {
                       deltaPct={nearbyProject.budget_delta_pct}
                       projectId={nearbyProject.fms_id}
                     />
-                  )}
-                </AnimatedCard>
-                {/* DidYouKnow interstitial every ~6th card */}
-                {i > 0 && (i + 1) % 6 === 0 && (
-                  <div className="mt-4">
-                    <DidYouKnowCard {...getDidYouKnowFact(Math.floor(i / 6))} />
                   </div>
                 )}
               </div>

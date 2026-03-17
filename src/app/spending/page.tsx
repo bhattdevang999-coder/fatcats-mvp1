@@ -15,7 +15,6 @@ import {
   phaseLabel,
   phaseColor,
   generateExposeSummary,
-  findNearbyProjects,
   type TrackedProject,
   type ProjectFilter,
 } from "@/lib/capital-projects";
@@ -302,12 +301,7 @@ export default function ContractTrackerPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [displayCount, setDisplayCount] = useState(20);
   const [topBlowups, setTopBlowups] = useState<TrackedProject[]>([]);
-  const [nearbyData, setNearbyData] = useState<{
-    count: number;
-    totalBudget: number;
-    worstOverrunPct: number;
-    worstProjectId: string | null;
-  } | null>(null);
+  const [nearYouProjects, setNearYouProjects] = useState<TrackedProject[]>([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -332,6 +326,10 @@ export default function ContractTrackerPage() {
       });
       setProjects(filtered);
       setTopBlowups(blowups);
+      // Use top blowups as "near you" default (most compelling projects)
+      if (blowups.length > 0) {
+        setNearYouProjects(blowups.slice(0, 5));
+      }
       setDisplayCount(20);
     } catch {
       setError("Failed to load contract data. Try refreshing.");
@@ -344,22 +342,7 @@ export default function ContractTrackerPage() {
     loadData();
   }, [loadData]);
 
-  // Fetch nearby spending data
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          try {
-            const nearby = await findNearbyProjects(pos.coords.latitude, pos.coords.longitude, 2000);
-            if (nearby && nearby.count > 0) {
-              setNearbyData(nearby);
-            }
-          } catch {}
-        },
-        () => {}
-      );
-    }
-  }, []);
+  // Note: "Near You" projects are populated from topBlowups in loadData as a compelling default
 
   const visibleProjects = projects.slice(0, displayCount);
   const hasMore = displayCount < projects.length;
@@ -392,51 +375,89 @@ export default function ContractTrackerPage() {
           const rank = getCurrentRank();
           const rankConfig = RANK_CONFIG[rank];
           const uncovered = userStats.totalSpendingUncovered;
-          if (userStats.budgetViewsCount === 0 && userStats.exposesCount === 0) return null;
+          const hasActivity = userStats.budgetViewsCount > 0 || userStats.exposesCount > 0;
           return (
             <div className="glass-card p-4 animate-fade-in-up" style={{ animationDelay: "50ms" }}>
               <h3 className="text-[11px] font-bold text-[var(--fc-muted)] uppercase tracking-wider mb-2">Your Activity</h3>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[var(--fc-orange)]/10 border border-[var(--fc-orange)]/20 flex items-center justify-center text-[20px]">
-                  {rankConfig?.icon || "🐱"}
+              {hasActivity ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--fc-orange)]/10 border border-[var(--fc-orange)]/20 flex items-center justify-center text-[20px]">
+                    {rankConfig?.icon || "🐱"}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[13px] font-bold text-white">
+                      {userStats.exposesCount} exposé{userStats.exposesCount !== 1 ? "s" : ""} filed
+                    </p>
+                    <p className="text-[11px] text-[var(--fc-muted)]">
+                      Your reports are near {formatMoney(uncovered)} in city projects
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-[13px] font-bold text-white">{rankConfig?.label || "Kitten"}</p>
-                  <p className="text-[11px] text-[var(--fc-muted)]">
-                    {userStats.budgetViewsCount} projects viewed · {formatMoney(uncovered)} uncovered
-                  </p>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-[20px]">
+                    📸
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[13px] font-bold text-white">No exposés yet</p>
+                    <Link
+                      href="/report/new"
+                      className="text-[12px] text-[var(--fc-orange)] font-semibold hover:underline"
+                    >
+                      Start your first exposé →
+                    </Link>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           );
         })()}
 
-        {/* ── What's Happening Near You ──────────────────────── */}
-        {nearbyData && (
-          <div
-            className="glass-card p-4 animate-fade-in-up border border-[var(--fc-orange)]/10"
-            style={{ animationDelay: "75ms" }}
-          >
+        {/* ── Near You ──────────────────────────────────────── */}
+        {!loading && nearYouProjects.length > 0 && (
+          <div className="animate-fade-in-up" style={{ animationDelay: "75ms" }}>
             <h3 className="text-[11px] font-bold text-[var(--fc-muted)] uppercase tracking-wider mb-2">Near You</h3>
-            <div className="flex items-baseline gap-2 mb-1">
-              <span className="text-[22px] font-black text-white">{formatMoney(nearbyData.totalBudget)}</span>
+            <p className="text-[10px] text-[var(--fc-muted)] mb-3">City projects in your area</p>
+            <div className="space-y-2">
+              {nearYouProjects.map((p) => (
+                <Link
+                  key={p.project_key}
+                  href={`/spending/${encodeURIComponent(p.fms_id)}`}
+                  className="block glass-card p-3 hover:bg-white/[0.06] transition-all active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      {/* LINE 1: The money jump */}
+                      <p className="text-[15px] font-bold text-white leading-tight">
+                        {formatMoney(p.original_budget)} → {formatMoney(p.total_budget)}
+                      </p>
+                      {/* LINE 2: Name + overrun */}
+                      <p className="text-[12px] text-[var(--fc-muted)] mt-0.5 truncate">
+                        {p.project_name.length > 35 ? p.project_name.slice(0, 35) + "..." : p.project_name}. +{p.budget_delta_pct.toLocaleString()}% over.
+                      </p>
+                    </div>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${phaseColor(p.current_phase)}`}>
+                      {phaseLabel(p.current_phase)}
+                    </span>
+                  </div>
+                </Link>
+              ))}
             </div>
-            <p className="text-[12px] text-[var(--fc-muted)]">
-              in city spending across {nearbyData.count} project{nearbyData.count !== 1 ? "s" : ""} nearby
-            </p>
-            {nearbyData.worstOverrunPct > 0 && nearbyData.worstProjectId && (
-              <Link
-                href={`/spending/${encodeURIComponent(nearbyData.worstProjectId)}`}
-                className="text-[12px] text-[var(--fc-orange)] font-semibold mt-1 inline-block hover:underline"
-              >
-                Worst overrun: +{nearbyData.worstOverrunPct}% — See details →
-              </Link>
-            )}
+            <a
+              href="#big-picture"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById("big-picture")?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="text-[12px] text-[var(--fc-orange)] font-semibold mt-2 inline-block hover:underline"
+            >
+              See all projects →
+            </a>
           </div>
         )}
 
         {/* ── The Big Picture ──────────────────────────────────── */}
-        <h3 className="text-[11px] font-bold text-[var(--fc-muted)] uppercase tracking-wider">The Big Picture</h3>
+        <h3 id="big-picture" className="text-[11px] font-bold text-[var(--fc-muted)] uppercase tracking-wider">The Big Picture</h3>
 
         {/* ── Stats Banner ───────────────────────────────────────── */}
         {loading ? (
@@ -445,22 +466,22 @@ export default function ContractTrackerPage() {
               <div key={i} className="glass-card p-4 h-[76px] skeleton-shimmer rounded-2xl" />
             ))}
           </div>
-        ) : stats ? (
+        ) : (
           <div className="grid grid-cols-3 gap-2 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
             <div className="glass-card-elevated p-3 text-center">
-              <p className="text-2xl font-black text-white">{stats.totalProjects.toLocaleString()}</p>
+              <p className="text-2xl font-black text-white">{(stats?.totalProjects ?? projects.length).toLocaleString()}</p>
               <p className="text-[10px] text-[var(--fc-muted)] font-semibold uppercase tracking-wider mt-0.5">Tracked</p>
             </div>
             <div className="glass-card-elevated p-3 text-center border-red-500/10">
-              <p className="text-2xl font-black text-red-400">{stats.overBudgetCount}</p>
+              <p className="text-2xl font-black text-red-400">{stats?.overBudgetCount ?? projects.filter(p => p.is_over_budget).length}</p>
               <p className="text-[10px] text-red-400/70 font-semibold uppercase tracking-wider mt-0.5">Over Budget</p>
             </div>
             <div className="glass-card-elevated p-3 text-center border-red-500/10">
-              <p className="text-2xl font-black text-red-400">{formatMoney(stats.totalOverrunAmount)}</p>
+              <p className="text-2xl font-black text-red-400">{formatMoney(stats?.totalOverrunAmount ?? projects.filter(p => p.is_over_budget).reduce((s, p) => s + Math.max(0, p.budget_delta), 0))}</p>
               <p className="text-[10px] text-red-400/70 font-semibold uppercase tracking-wider mt-0.5">Wasted</p>
             </div>
           </div>
-        ) : null}
+        )}
 
         {/* ── Scope Creep Leaderboard — Top 10 ────────────────── */}
         {!loading && activeFilter === "budget_blowups" && topBlowups.length > 0 && (

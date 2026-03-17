@@ -260,10 +260,10 @@ export default function ProfilePage() {
                       {nextRank.progress}%
                     </span>
                   </div>
-                  <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+                  <div className="w-full h-[4px] bg-white/[0.08] rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-[var(--fc-orange)] to-[#ff8c5a] rounded-full transition-all duration-500"
-                      style={{ width: `${nextRank.progress}%` }}
+                      className="h-full bg-gradient-to-r from-[var(--fc-orange)] to-[#ff8c5a] rounded-full transition-all duration-700"
+                      style={{ width: `${Math.max(nextRank.progress, 2)}%` }}
                     />
                   </div>
                   <p className="text-[10px] text-[var(--fc-muted)]">
