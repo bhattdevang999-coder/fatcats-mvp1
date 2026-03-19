@@ -11,6 +11,7 @@ import { getDeviceHash } from "@/lib/device";
 import { getPipelineIndex, getCategoryAgency, getAgencyHandle, FLAVOR_REACTIONS } from "@/lib/types";
 import type { Report } from "@/lib/types";
 import { getFullGeoIntelligence, estimateRepairCost } from "@/lib/geo-intelligence";
+import { filterTitle, filterCost } from "@/lib/voice-filter";
 import type { GeoIntelligence } from "@/lib/geo-intelligence";
 import { IntelLogo } from "@/components/FatCatsIntel";
 import FollowButton from "@/components/FollowButton";
@@ -468,7 +469,7 @@ export default function ExposeClient() {
 
           {/* Title */}
           <div>
-            <h1 className="text-2xl font-bold text-white leading-tight mb-2">{report.title}</h1>
+            <h1 className="text-2xl font-bold text-white leading-tight mb-2">{filterTitle(report.title, report.category)}</h1>
             <div className="flex items-center gap-2 text-[13px]">
               {report.neighborhood && <span className="text-[var(--fc-info)] font-medium">{report.neighborhood}</span>}
               <span className="text-[var(--fc-muted)] opacity-40">·</span>
@@ -538,12 +539,11 @@ export default function ExposeClient() {
                     <IntelLogo size={18} />
                     Cost Intelligence
                   </h3>
-                  <span className="beta-badge">Beta</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <span className="text-[11px] text-[var(--fc-muted)] block">Est. repair cost</span>
-                    <span className="text-[15px] text-white font-bold">{costData.range}</span>
+                    <span className="text-[15px] text-[var(--fc-orange)] font-bold">{filterCost(costData.range, costData.avg)}</span>
                     <span className="text-[11px] text-[var(--fc-muted)] block">{costData.unit}</span>
                   </div>
                   {geoIntel && geoIntel.nearbyCount > 0 && (
@@ -694,7 +694,6 @@ export default function ExposeClient() {
                   <IntelLogo size={18} />
                   Who handles this
                 </h3>
-                <span className="beta-badge">Beta</span>
               </div>
               {(geoIntel?.neighborhood || report.neighborhood) && (
                 <p className="text-[13px] text-[var(--fc-muted)]">

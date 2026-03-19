@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Report } from "@/lib/types";
 import { getPipelineIndex, getAgencyHandle, FLAVOR_REACTIONS } from "@/lib/types";
 import { estimateRepairCost } from "@/lib/geo-intelligence";
+import { filterTitle, filterCost } from "@/lib/voice-filter";
 import StatusPill from "./StatusPill";
 import { PipelineSteps } from "./StatusPill";
 import FollowButton from "./FollowButton";
@@ -301,15 +302,15 @@ export default function ReportCard({ report }: { report: Report }) {
         <div className="px-3.5 pt-2.5">
           <PipelineSteps status={report.status} />
           <div className="flex justify-between mt-1 mb-0.5">
-            <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Open</span>
-            <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Verified</span>
+            <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Reported</span>
+            <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Confirmed</span>
           </div>
         </div>
 
         {/* Content */}
         <div className="px-3.5 pt-1 pb-2">
           <h3 className="text-[14px] font-semibold text-white leading-tight line-clamp-2">
-            {report.title}
+            {filterTitle(report.title, report.category)}
           </h3>
           <div className="flex items-center gap-2 mt-1.5 text-[11px] text-[var(--fc-muted)]">
             {report.neighborhood && (
@@ -320,12 +321,11 @@ export default function ReportCard({ report }: { report: Report }) {
             <span className="opacity-40">·</span>
             <span>{report.source === "citizen" ? "Resident" : "311"}</span>
           </div>
-          {/* Cost preview chip */}
+          {/* Cost preview chip — human-readable, no Beta label */}
           <div className="flex items-center gap-2 mt-2">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/[0.06] text-[10px] text-[var(--fc-muted)]">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[var(--fc-orange)]/[0.08] border border-[var(--fc-orange)]/15 text-[10px] text-[var(--fc-orange)] font-semibold">
               <span className="text-[10px]">💰</span>
-              {costData.range}
-              <span className="beta-badge ml-1" style={{ fontSize: '7px', padding: '1px 3px' }}>Beta</span>
+              {filterCost(costData.range, costData.avg)}
             </span>
           </div>
         </div>

@@ -7,6 +7,7 @@ import StatusPill from "@/components/StatusPill";
 import { MapSkeleton } from "@/components/Skeletons";
 import { listMapReports } from "@/lib/reports";
 import { getPipelineIndex } from "@/lib/types";
+import { filterTitle } from "@/lib/voice-filter";
 import ProjectMapCard from "@/components/ProjectMapCard";
 import { getProjectsWithCoords, type TrackedProject } from "@/lib/capital-projects";
 import type { Report } from "@/lib/types";
@@ -490,7 +491,7 @@ export default function MapPage() {
                         </span>
                       </div>
                       <h3 className="text-[14px] font-semibold text-white leading-tight line-clamp-2 mb-1">
-                        {selectedReport.title}
+                        {filterTitle(selectedReport.title, selectedReport.category)}
                       </h3>
                       {selectedReport.neighborhood && (
                         <p className="text-[11px] text-[var(--fc-muted)] mb-2">{selectedReport.neighborhood}</p>

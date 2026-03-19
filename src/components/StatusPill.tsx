@@ -1,4 +1,5 @@
-import { getPipelineIndex, getStatusLabel } from "@/lib/types";
+import { getPipelineIndex } from "@/lib/types";
+import { filterStatus } from "@/lib/voice-filter";
 
 interface StatusPillProps {
   status: string;
@@ -16,7 +17,7 @@ const STAGE_COLORS: Record<number, { bg: string; text: string; border: string; d
 
 export default function StatusPill({ status }: StatusPillProps) {
   const idx = getPipelineIndex(status);
-  const label = getStatusLabel(status);
+  const label = filterStatus(status);
   const colors = STAGE_COLORS[idx] || STAGE_COLORS[0];
 
   return (
@@ -32,7 +33,7 @@ export default function StatusPill({ status }: StatusPillProps) {
 // Mini pipeline step indicator for report cards
 export function PipelineSteps({ status }: { status: string }) {
   const currentIdx = getPipelineIndex(status);
-  const labels = ["Open", "Assigned", "In Progress", "Resolved", "Verified"];
+  const labels = ["Reported", "City responded", "Being fixed", "Marked fixed", "Confirmed"];
 
   return (
     <div className="flex items-center gap-0.5 w-full">

@@ -204,7 +204,7 @@ function ProjectCard({ project, index, isBlowupView }: { project: TrackedProject
       <div className="flex flex-wrap gap-1.5 mb-3">
         {project.is_over_budget && (
           <span className={`inline-flex items-center gap-1 font-semibold px-2 py-1 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 ${isBlowupView ? "text-[12px]" : "text-[10px]"}`}>
-            ↑ {formatMoney(Math.abs(project.budget_delta))} over (+{project.budget_delta_pct}%)
+            ↑ {formatMoney(Math.abs(project.budget_delta))} over budget
           </span>
         )}
         {!project.is_over_budget && project.budget_delta < 0 && (
@@ -359,11 +359,11 @@ export default function ContractTrackerPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold text-white leading-tight">
-                My Block
+                Contracts
               </h1>
               <p className="text-[12px] text-[var(--fc-muted)] flex items-center gap-1.5 mt-0.5">
                 Follow the money. Every dollar. Every delay.
-                <FatCatsIntelBadge size="sm" showBeta />
+                <FatCatsIntelBadge size="sm" />
               </p>
             </div>
           </div>
@@ -431,9 +431,9 @@ export default function ContractTrackerPage() {
                       <p className="text-[15px] font-bold text-white leading-tight">
                         {formatMoney(p.original_budget)} → {formatMoney(p.total_budget)}
                       </p>
-                      {/* LINE 2: Name + overrun */}
+                      {/* LINE 2: Name + dollar overrun */}
                       <p className="text-[12px] text-[var(--fc-muted)] mt-0.5 truncate">
-                        {p.project_name.length > 35 ? p.project_name.slice(0, 35) + "..." : p.project_name}. +{p.budget_delta_pct.toLocaleString()}% over.
+                        {p.project_name.length > 35 ? p.project_name.slice(0, 35) + "..." : p.project_name}. {formatMoney(p.total_budget - p.original_budget)} over budget.
                       </p>
                     </div>
                     <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${phaseColor(p.current_phase)}`}>
@@ -513,7 +513,7 @@ export default function ContractTrackerPage() {
                     {formatMoney(p.original_budget)} → {formatMoney(p.total_budget)}
                   </span>
                   <span className="text-[11px] font-black text-red-400 shrink-0">
-                    +{p.budget_delta_pct.toLocaleString()}%
+                    +{formatMoney(Math.abs(p.budget_delta))}
                   </span>
                 </Link>
               ))}
@@ -651,7 +651,7 @@ export default function ContractTrackerPage() {
             <p className="text-[10px] text-[var(--fc-muted)]">
               Powered by FatCats Intel
             </p>
-            <span className="beta-badge animate-beta-pulse">Beta</span>
+
           </div>
           <p className="text-[9px] text-[var(--fc-muted)]/60">
             Data from{" "}

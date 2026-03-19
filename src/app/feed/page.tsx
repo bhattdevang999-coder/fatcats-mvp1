@@ -23,15 +23,15 @@ type FilterKey = "all" | "open" | "in_progress" | "resolved" | "verify";
 
 const FEED_TABS: { key: FeedTab; label: string }[] = [
   { key: "trending", label: "Trending" },
-  { key: "near", label: "Your Block" },
+  { key: "near", label: "Nearby" },
   { key: "following", label: "Following" },
 ];
 
 const FILTER_TABS: { key: FilterKey; label: string; emoji?: string }[] = [
   { key: "all", label: "All" },
-  { key: "open", label: "Open" },
-  { key: "in_progress", label: "In Progress" },
-  { key: "resolved", label: "Resolved" },
+  { key: "open", label: "Reported" },
+  { key: "in_progress", label: "Being Fixed" },
+  { key: "resolved", label: "Marked Fixed" },
   { key: "verify", label: "Verify It", emoji: "✅" },
 ];
 

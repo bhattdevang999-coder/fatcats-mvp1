@@ -376,7 +376,8 @@ export function generateExposeSummary(project: TrackedProject): string {
   const spendPct = project.total_budget > 0
     ? Math.round((project.spend_to_date / project.total_budget) * 100)
     : 0;
-  let text = `This ${project.category || "capital"} project in ${project.borough} was originally budgeted at ${formatMoney(project.original_budget)}. It has since ballooned to ${formatMoney(project.total_budget)} — a ${project.budget_delta_pct}% increase. ${spendPct}% of the inflated budget has been spent so far.`;
+  const overrun = formatMoney(project.total_budget - project.original_budget);
+  let text = `This ${project.category || "capital"} project in ${project.borough} started at ${formatMoney(project.original_budget)}. It ballooned to ${formatMoney(project.total_budget)} — ${overrun} over budget. ${spendPct}% of that inflated budget has been spent.`;
   if (project.is_overdue && project.days_overdue > 0) {
     text += ` The project is ${formatDays(project.days_overdue)} overdue.`;
   }

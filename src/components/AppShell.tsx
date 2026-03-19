@@ -58,7 +58,7 @@ const NAV_ITEMS = [
   { href: "/feed", Icon: FeedIcon, label: "Feed" },
   { href: "/map", Icon: MapIcon, label: "Map" },
   { href: "/report/new", Icon: ReportIcon, isCenter: true, label: "" },
-  { href: "/spending", Icon: ContractsIcon, label: "My Block" },
+  { href: "/spending", Icon: ContractsIcon, label: "Contracts" },
   { href: "/profile", Icon: ProfileIcon, label: "Profile" },
 ];
 
