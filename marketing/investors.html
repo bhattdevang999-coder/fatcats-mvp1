@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FatCats — For Investors</title>
+  <meta name="description" content="Request access to the FatCats investor brief and a private product demo. Civic intelligence for urban infrastructure.">
+  <meta property="og:title" content="FatCats — For Investors">
+  <meta property="og:description" content="Request access to the investor brief and a private product demo.">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/png" href="cat-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <canvas id="ambient-canvas"></canvas>
+
+  <!-- ─── Nav ─── -->
+  <nav class="nav">
+    <a href="index.html" class="nav-logo">
+      <img src="cat-icon.png" alt="FatCats" width="28" height="28">
+      <span>FatCats</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html#how-it-works" class="nav-link">How It Works</a>
+      <a href="investors.html" class="nav-link active">Investors</a>
+    </div>
+    <button class="nav-toggle" id="nav-toggle" aria-label="Toggle menu">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+  </nav>
+
+  <!-- Mobile Menu -->
+  <div class="mobile-overlay" id="mobile-menu">
+    <a href="index.html#how-it-works">How It Works</a>
+    <a href="investors.html" class="active">Investors</a>
+  </div>
+
+  <!-- ─── Hero ─── -->
+  <div class="investor-hero">
+    <span class="investor-label reveal">For Investors &amp; Partners</span>
+    <h1 class="investor-headline reveal">$1.2 trillion is being spent.<br>Nobody is watching.</h1>
+    <p class="investor-desc reveal reveal-delay-1">Pre-seed round open. We're selectively sharing our investor brief and scheduling private demos.</p>
+  </div>
+
+  <!-- ─── The Problem (visceral) ─── -->
+  <section class="section">
+    <div class="section-inner">
+      <div class="text-center">
+        <span class="section-label reveal">The Problem</span>
+        <h2 class="section-title reveal">America's infrastructure is failing. In public. With receipts.</h2>
+      </div>
+      <div class="problem-evidence">
+        <div class="problem-card reveal reveal-delay-1">
+          <div class="problem-number">C</div>
+          <div class="problem-context">National infrastructure grade. That's a D+ in 13 categories. Every bridge, pipe, and road you drive on.</div>
+        </div>
+        <div class="problem-card reveal reveal-delay-2">
+          <div class="problem-number">$3.7T</div>
+          <div class="problem-context">The gap between what we need and what exists. Every year it grows. Nobody tracks where the money actually goes.</div>
+        </div>
+        <div class="problem-card reveal reveal-delay-3">
+          <div class="problem-number">3.4M+</div>
+          <div class="problem-context">Complaints filed in NYC alone last year. Potholes, burst pipes, crumbling schools. Filed into a system designed to lose them.</div>
+        </div>
+        <div class="problem-card reveal reveal-delay-4">
+          <div class="problem-number">$1.2T</div>
+          <div class="problem-context">Federal infrastructure spending now flowing. Zero real-time accountability on where it lands or whether it works.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── The Thesis ─── -->
+  <section class="section">
+    <div class="section-inner">
+      <div class="thesis-block reveal">
+        <div class="section-divider"></div>
+        <h2 class="vision-quote">What if citizens could see every dollar, every contractor, every failure — and hold the system accountable in real time?</h2>
+        <p class="vision-body">That's the $825 billion question. The GovTech market is massive, fragmented, and still waiting for its Waze moment.</p>
+        <p class="vision-body">We have a working product, a proprietary dataset, and a growth engine that compounds. The brief covers the rest.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Why Now ─── -->
+  <section class="section">
+    <div class="section-inner text-center">
+      <span class="section-label reveal">Why Now</span>
+      <h2 class="section-title reveal">The window is open.</h2>
+      <div class="why-now-grid">
+        <div class="why-now-item reveal reveal-delay-1">
+          <div class="why-now-title">Unprecedented Spending</div>
+          <div class="why-now-desc">The largest infrastructure investment in a generation is happening right now. Accountability hasn't caught up.</div>
+        </div>
+        <div class="why-now-item reveal reveal-delay-2">
+          <div class="why-now-title">Trust Is Collapsing</div>
+          <div class="why-now-desc">Public trust in government is at historic lows. People want transparency — not another 311 hotline.</div>
+        </div>
+        <div class="why-now-item reveal reveal-delay-3">
+          <div class="why-now-title">Mobile-First Generation</div>
+          <div class="why-now-desc">Everyone has a camera, a GPS, and a reason to be angry. The infrastructure for citizen accountability finally exists.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Team ─── -->
+  <section class="section">
+    <div class="section-inner text-center">
+      <span class="section-label reveal">Team</span>
+      <h2 class="section-title reveal">Built by veterans, for citizens.</h2>
+      <div class="team-grid">
+        <div class="team-card reveal reveal-delay-1">
+          <div class="team-avatar">DB</div>
+          <div class="team-name">Devang Bhatt</div>
+          <div class="team-role">Founder &amp; CEO</div>
+          <div class="team-creds">Ex-Strategy Consulting<br>NYU Stern MBA<br>US Navy Veteran</div>
+        </div>
+        <div class="team-card reveal reveal-delay-2">
+          <div class="team-avatar">PW</div>
+          <div class="team-name">Philip Warthen</div>
+          <div class="team-role">Co-Founder &amp; COO</div>
+          <div class="team-creds">Ex-AWS<br>NYU Stern MBA<br>US Air Force Veteran</div>
+        </div>
+        <div class="team-card reveal reveal-delay-3">
+          <div class="team-avatar">SS</div>
+          <div class="team-name">Sheik Shakoor</div>
+          <div class="team-role">Co-Founder &amp; Partner</div>
+          <div class="team-creds">E-Commerce Leader<br>20+ Years of Experience</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Investor Access Form ─── -->
+  <section class="section cta-section">
+    <div class="section-inner">
+      <div class="cta-content">
+        <span class="section-label reveal">Get Access</span>
+        <h2 class="cta-title reveal">Request the investor brief.</h2>
+        <p class="cta-desc reveal reveal-delay-1">Share your details and we'll send over our deck, data, and schedule a live demo.</p>
+        <form class="investor-form reveal reveal-delay-2" id="investor-form" action="https://formsubmit.co/ajax/team@fatcatsapp.com" method="POST">
+          <input type="hidden" name="_subject" value="FatCats Investor Access Request">
+          <input type="hidden" name="_template" value="table">
+          <input type="text" name="_honey" style="display:none">
+          <div class="form-row">
+            <input type="text" name="name" class="form-input" placeholder="Full name" required>
+            <input type="email" name="email" class="form-input" placeholder="you@fund.com" required>
+          </div>
+          <div class="form-row">
+            <input type="text" name="fund" class="form-input" placeholder="Fund or organization" required>
+            <select name="role" class="form-select" required>
+              <option value="" disabled selected>Role</option>
+              <option value="GP / Partner">GP / Partner</option>
+              <option value="Angel">Angel</option>
+              <option value="Journalist / Media">Journalist / Media</option>
+              <option value="Civic / Nonprofit">Civic / Nonprofit</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <textarea name="notes" class="form-input" rows="3" placeholder="Anything you'd like us to know (optional)"></textarea>
+          <button type="submit" class="btn-primary" id="investor-btn">Request investor brief &amp; demo access</button>
+        </form>
+        <div class="form-success" id="investor-success">Request received. We'll follow up shortly.</div>
+        <p class="form-note reveal">Your information is confidential and shared only with the founding team.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Footer ─── -->
+  <footer class="footer">
+    <span>&copy; 2026 FatCats Inc.</span>
+    <span class="footer-sep">|</span>
+    <a href="mailto:team@fatcatsapp.com">team@fatcatsapp.com</a>
+    <span class="footer-sep">|</span>
+    <a href="#">Privacy</a>
+    <span class="footer-sep">|</span>
+    <a href="#">Terms</a>
+  </footer>
+
+  <script src="ambient.js"></script>
+  <script>
+    // ─── Scroll Reveal ───
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    // ─── Mobile Menu ───
+    const navToggle = document.getElementById('nav-toggle');
+    const mobileMenu = document.getElementById('mobile-menu');
+
+    navToggle.addEventListener('click', () => {
+      navToggle.classList.toggle('open');
+      mobileMenu.classList.toggle('open');
+      document.body.style.overflow = mobileMenu.classList.contains('open') ? 'hidden' : '';
+    });
+
+    function closeMobileMenu() {
+      navToggle.classList.remove('open');
+      mobileMenu.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 640) closeMobileMenu();
+    });
+
+    // ─── Investor Form ───
+    document.getElementById('investor-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('investor-btn');
+      const form = this;
+      btn.disabled = true;
+      btn.textContent = 'Submitting...';
+
+      try {
+        const data = new FormData(form);
+        const res = await fetch(form.action, {
+          method: 'POST',
+          body: data,
+          headers: { 'Accept': 'application/json' }
+        });
+        if (res.ok) {
+          form.style.display = 'none';
+          document.getElementById('investor-success').classList.add('visible');
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Request investor brief & demo access';
+          alert('Something went wrong. Please try again.');
+        }
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Request investor brief & demo access';
+        alert('Something went wrong. Please try again.');
+      }
+    });
+  </script>
+
+</body>
+</html>
