@@ -93,10 +93,10 @@ function PipelineTimeline({ report }: { report: Report }) {
 
   const stages = [
     { label: "Reported", detail: `Filed via ${report.source === "citizen" ? "resident" : "311"}`, date: createdDate, icon: "📍" },
-    { label: "Assigned", detail: report.contractor_name || getCategoryAgency(report.category), date: currentIdx >= 1 ? new Date(createdDate.getTime() + 86400000 * 2) : null, icon: "📋" },
-    { label: "In Progress", detail: report.contractor_name ? `${report.contractor_name} dispatched` : "Crew dispatched", date: currentIdx >= 2 ? new Date(createdDate.getTime() + 86400000 * 5) : null, icon: "🔧" },
-    { label: "Resolved", detail: "Marked resolved", date: currentIdx >= 3 ? new Date(createdDate.getTime() + 86400000 * 12) : null, icon: "✅" },
-    { label: "Verified", detail: "Community confirmed", date: currentIdx >= 4 ? new Date(createdDate.getTime() + 86400000 * 14) : null, icon: "🏆" },
+    { label: "City responded", detail: report.contractor_name || getCategoryAgency(report.category), date: currentIdx >= 1 ? new Date(createdDate.getTime() + 86400000 * 2) : null, icon: "📋" },
+    { label: "Being fixed", detail: report.contractor_name ? `${report.contractor_name} dispatched` : "Crew dispatched", date: currentIdx >= 2 ? new Date(createdDate.getTime() + 86400000 * 5) : null, icon: "🔧" },
+    { label: "Marked fixed", detail: "City says it's done", date: currentIdx >= 3 ? new Date(createdDate.getTime() + 86400000 * 12) : null, icon: "✅" },
+    { label: "Fix confirmed", detail: "Community verified", date: currentIdx >= 4 ? new Date(createdDate.getTime() + 86400000 * 14) : null, icon: "🏆" },
   ];
 
   return (
@@ -462,8 +462,8 @@ export default function ExposeClient() {
             </div>
             <PipelineSteps status={report.status} />
             <div className="flex justify-between mt-1">
-              <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Open</span>
-              <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Verified</span>
+              <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Reported</span>
+              <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Confirmed</span>
             </div>
           </div>
 
