@@ -189,8 +189,6 @@ function formatShortMoney(n: number): string {
 export function filterSpendingDelta(
   original: number,
   current: number,
-  deltaPct: number,
-  projectName: string
 ): string {
   const delta = current - original;
   if (delta <= 0) return `Under budget by ${formatShortMoney(Math.abs(delta))}`;

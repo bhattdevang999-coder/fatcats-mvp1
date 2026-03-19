@@ -15,7 +15,7 @@ export default function MoneyPill({
   projectName,
   originalBudget,
   currentBudget,
-  deltaPct,
+  // deltaPct kept in interface for backward compat
   projectId,
 }: MoneyPillProps) {
   const overrun = currentBudget - originalBudget;
