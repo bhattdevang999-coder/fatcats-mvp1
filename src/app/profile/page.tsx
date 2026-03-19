@@ -9,6 +9,7 @@ import { ProfileSkeleton } from "@/components/Skeletons";
 import { WatchdogBadge } from "@/components/BlockWatchdogCTA";
 import { listReportsByDevice } from "@/lib/reports";
 import { getDeviceHash } from "@/lib/device";
+import { filterTitle } from "@/lib/voice-filter";
 import {
   getStreak,
   getTotalVisits,
@@ -240,12 +241,13 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Spending uncovered */}
+              {/* Spending uncovered — narrative, not just a number */}
               <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--fc-orange)]/[0.06] border border-[var(--fc-orange)]/10 mb-3">
                 <span className="text-[20px]">💰</span>
                 <div>
-                  <p className="text-[18px] font-black text-white">{formatMoney(spendingUncovered)}</p>
-                  <p className="text-[11px] text-[var(--fc-muted)]">in government spending uncovered</p>
+                  <p className="text-[14px] text-white leading-snug">
+                    You&apos;ve helped uncover <span className="font-black text-[var(--fc-orange)]">{formatMoney(spendingUncovered)}</span> in questionable government spending near your reports
+                  </p>
                 </div>
               </div>
 
@@ -267,7 +269,8 @@ export default function ProfilePage() {
                     />
                   </div>
                   <p className="text-[10px] text-[var(--fc-muted)]">
-                    {userStats.budgetViewsCount} projects viewed · {userStats.exposesCount} reports filed · {userStats.sharesCount} shares
+                    {userStats.budgetViewsCount > 0 ? `${userStats.budgetViewsCount} projects investigated` : "Start investigating projects"}
+                    {userStats.sharesCount > 0 ? ` · ${userStats.sharesCount} times you spread the word` : ""}
                   </p>
                 </div>
               )}
@@ -317,20 +320,20 @@ export default function ProfilePage() {
                 </span>
               </div>
 
-              {/* Big stats row */}
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <div className="text-center">
-                  <span className="text-3xl font-bold text-white block leading-none">{reports.length}</span>
-                  <span className="text-[10px] text-[var(--fc-muted)] uppercase tracking-wider mt-1 block">Exposés</span>
-                </div>
-                <div className="text-center">
-                  <span className="text-3xl font-bold text-[var(--fc-info)] block leading-none">{totalWatchers}</span>
-                  <span className="text-[10px] text-[var(--fc-muted)] uppercase tracking-wider mt-1 block">Watchers</span>
-                </div>
-                <div className="text-center">
-                  <span className="text-3xl font-bold text-[var(--fc-success)] block leading-none">{fixedCount}</span>
-                  <span className="text-[10px] text-[var(--fc-muted)] uppercase tracking-wider mt-1 block">Fixed</span>
-                </div>
+              {/* Impact narrative — not raw numbers, human story */}
+              <div className="space-y-2 mb-4">
+                {reports.length > 0 && (
+                  <p className="text-[14px] text-white leading-snug">
+                    <span className="font-bold text-[var(--fc-orange)]">{reports.length} exposé{reports.length !== 1 ? "s" : ""}</span> filed.
+                    {totalWatchers > 0 && <> <span className="font-bold text-[var(--fc-info)]">{totalWatchers} {totalWatchers === 1 ? "person" : "people"}</span> watching.</>}
+                    {fixedCount > 0 && <> <span className="font-bold text-[var(--fc-success)]">{fixedCount}</span> actually got fixed.</>}
+                  </p>
+                )}
+                {reports.length === 0 && (
+                  <p className="text-[14px] text-[var(--fc-muted)]">
+                    No exposés yet. Spot something broken — you&apos;re the investigator now.
+                  </p>
+                )}
               </div>
 
               {/* Streak + badges row */}
@@ -494,7 +497,7 @@ export default function ProfilePage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-[13px] font-semibold text-white truncate">
-                        {r.title}
+                        {filterTitle(r.title, r.category)}
                       </h3>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[11px] text-[var(--fc-muted)]">

@@ -11,6 +11,7 @@ import { getPipelineIndex } from "@/lib/types";
 import { clusterReports } from "@/lib/feed-clustering";
 import { getFollowedReportIds } from "@/lib/follows";
 import { estimateRepairCost } from "@/lib/geo-intelligence";
+import { filterTitle, filterCost } from "@/lib/voice-filter";
 import { BlockWatchdogClaimCTA, InlineClaimCTA, NeighborhoodLeaderboard } from "@/components/BlockWatchdogCTA";
 import MoneyPill from "@/components/MoneyPill";
 import DidYouKnowCard, { getDidYouKnowFact } from "@/components/DidYouKnowCard";
@@ -29,10 +30,10 @@ const FEED_TABS: { key: FeedTab; label: string }[] = [
 
 const FILTER_TABS: { key: FilterKey; label: string; emoji?: string }[] = [
   { key: "all", label: "All" },
-  { key: "open", label: "Reported" },
-  { key: "in_progress", label: "Being Fixed" },
-  { key: "resolved", label: "Marked Fixed" },
-  { key: "verify", label: "Verify It", emoji: "✅" },
+  { key: "open", label: "Reported", emoji: "🟠" },
+  { key: "in_progress", label: "Being Fixed", emoji: "🛠️" },
+  { key: "resolved", label: "Fixed", emoji: "✅" },
+  { key: "verify", label: "Verify", emoji: "👁️" },
 ];
 
 function filterByPipeline(reports: Report[], filter: FilterKey): Report[] {
@@ -128,34 +129,44 @@ function HotTopicsBar({ reports }: { reports: Report[] }) {
       <div className="flex items-center gap-2 px-4 mb-2.5">
         <span className="text-[14px]">🔥</span>
         <h2 className="text-[13px] font-bold text-white uppercase tracking-wider">Hot Right Now</h2>
+        <span className="text-[10px] text-red-400 font-bold bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20 ml-1">
+          {hotReports.length} burning
+        </span>
       </div>
       <div className="flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-2">
-        {hotReports.map((r) => (
-          <a
-            key={r.id}
-            href={`/expose/${r.id}`}
-            className="shrink-0 w-[220px] p-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:border-[var(--fc-orange)]/20 transition-all active:scale-[0.97] group"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[14px] font-bold text-[var(--fc-orange)]">{r.costRange}</span>
-              <span className="text-[10px] text-red-400 font-medium bg-red-500/10 px-1.5 py-0.5 rounded-md">
-                {r.daysOpen}d open
-              </span>
-            </div>
-            <p className="text-[12px] text-white font-medium leading-snug line-clamp-2 group-hover:text-[var(--fc-orange)] transition-colors">
-              {r.title}
-            </p>
-            <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--fc-muted)]">
-              <span>{r.neighborhood || "NYC"}</span>
-              {r.supporters_count > 0 && (
-                <>
-                  <span className="opacity-40">·</span>
-                  <span>🐾 {r.supporters_count}</span>
-                </>
-              )}
-            </div>
-          </a>
-        ))}
+        {hotReports.map((r) => {
+          const cost = estimateRepairCost(r.category);
+          return (
+            <a
+              key={r.id}
+              href={`/expose/${r.id}`}
+              className="shrink-0 w-[220px] p-3.5 rounded-xl bg-white/[0.04] border border-red-500/10 hover:bg-white/[0.08] hover:border-[var(--fc-orange)]/30 transition-all active:scale-[0.97] group"
+            >
+              {/* Lead with the cost shock */}
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[13px] font-bold text-[var(--fc-orange)]">
+                  💰 {filterCost(cost.range, cost.avg)}
+                </span>
+                <span className="text-[10px] text-red-400 font-bold bg-red-500/10 px-1.5 py-0.5 rounded-md border border-red-500/20">
+                  {r.daysOpen}d
+                </span>
+              </div>
+              {/* Dharmaraj voice title */}
+              <p className="text-[12px] text-white font-semibold leading-snug line-clamp-2 group-hover:text-[var(--fc-orange)] transition-colors">
+                {filterTitle(r.title, r.category)}
+              </p>
+              <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--fc-muted)]">
+                <span>{r.neighborhood || "NYC"}</span>
+                {r.supporters_count > 0 && (
+                  <>
+                    <span className="opacity-40">·</span>
+                    <span>🐾 {r.supporters_count}</span>
+                  </>
+                )}
+              </div>
+            </a>
+          );
+        })}
       </div>
     </div>
   );

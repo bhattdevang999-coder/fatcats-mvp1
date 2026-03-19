@@ -9,6 +9,9 @@ interface ProjectMapCardProps {
 }
 
 export default function ProjectMapCard({ project, onClose }: ProjectMapCardProps) {
+  const overrun = project.total_budget - project.original_budget;
+  const isOverBudget = overrun > 0;
+
   return (
     <>
       <div className="fixed inset-0 z-20" onClick={onClose} />
@@ -16,14 +19,20 @@ export default function ProjectMapCard({ project, onClose }: ProjectMapCardProps
         <div className="max-w-lg mx-auto mx-3 mb-3">
           <div className="glass-card p-4 border border-white/10 shadow-2xl">
             <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-3" />
-            {/* TABLOID RULE: 3 lines */}
-            {/* LINE 1: The shock */}
+            {/* TABLOID RULE: 3 lines — lead with the outrageous fact */}
+            {/* LINE 1: The shock — dollar overrun, not percentage */}
             <p className="text-[16px] font-bold text-white">
-              {formatMoney(project.original_budget)} → {formatMoney(project.total_budget)}
+              {isOverBudget ? (
+                <>
+                  <span className="text-red-400">{formatMoney(overrun)}</span> over budget
+                </>
+              ) : (
+                <>Under budget by {formatMoney(Math.abs(overrun))}</>
+              )}
             </p>
-            {/* LINE 2: The context */}
-            <p className="text-[12px] text-[var(--fc-muted)] mt-1 truncate">
-              {project.project_name.length > 30 ? project.project_name.slice(0, 30) + "..." : project.project_name}. {project.borough}. +{project.budget_delta_pct.toLocaleString()}%.
+            {/* LINE 2: The context — original → current, project name */}
+            <p className="text-[12px] text-[var(--fc-muted)] mt-1">
+              {formatMoney(project.original_budget)} → {formatMoney(project.total_budget)}. {project.project_name.length > 35 ? project.project_name.slice(0, 35) + "..." : project.project_name}. {project.borough}.
             </p>
             {/* LINE 3: The hook */}
             <Link

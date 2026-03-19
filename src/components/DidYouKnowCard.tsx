@@ -10,14 +10,14 @@ interface DidYouKnowProps {
 }
 
 const FACTS: DidYouKnowProps[] = [
-  { shock: "43%", context: "of Brooklyn road projects blew their budget", hook: "See which ones →", href: "/spending" },
-  { shock: "2.3x longer", context: "than planned. The average NYC capital project.", hook: "See the worst →", href: "/spending" },
-  { shock: "$38.3B", context: "in scope creep. 847 projects. Your taxes.", hook: "The receipts →", href: "/spending" },
+  { shock: "$38.3B", context: "in scope creep across 847 projects. Your taxes.", hook: "The receipts →", href: "/spending" },
+  { shock: "$1.7M", context: "for one sidewalk project in Queens. Original bid was $22K.", hook: "See the paper trail →", href: "/spending" },
+  { shock: "$2.1B", context: "spent in Brooklyn alone on 347 capital projects last year", hook: "Track them →", href: "/spending" },
+  { shock: "$1.9M", context: "One playground in Staten Island. Started at $200K. 12 change orders later.", hook: "The full story →", href: "/spending" },
   { shock: "57 days", context: "to process one change order. That's just the paperwork.", hook: "See why →", href: "/spending" },
-  { shock: "7,533%", context: "over budget. One sidewalk project in Queens.", hook: "The full story →", href: "/spending" },
-  { shock: "$2.1B", context: "spent in Brooklyn on 347 capital projects last year", hook: "Track them →", href: "/spending" },
-  { shock: "12 change orders", context: "One playground. $200K → $1.9M. Staten Island.", hook: "The paper trail →", href: "/spending" },
-  { shock: "847 projects", context: "went over budget. NYC averages 24% overrun.", hook: "See the data →", href: "/spending" },
+  { shock: "$4.2M", context: "for a playground that's still broken. Queens, District 24.", hook: "See the receipts →", href: "/spending" },
+  { shock: "847 projects", context: "went over budget. The average overrun: $4.5M per project.", hook: "See the data →", href: "/spending" },
+  { shock: "$12M", context: "in change orders on one road project. Brooklyn. Still not done.", hook: "The paper trail →", href: "/spending" },
 ];
 
 export function getDidYouKnowFact(index: number): DidYouKnowProps {

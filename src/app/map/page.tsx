@@ -7,7 +7,8 @@ import StatusPill from "@/components/StatusPill";
 import { MapSkeleton } from "@/components/Skeletons";
 import { listMapReports } from "@/lib/reports";
 import { getPipelineIndex } from "@/lib/types";
-import { filterTitle } from "@/lib/voice-filter";
+import { filterTitle, filterCost } from "@/lib/voice-filter";
+import { estimateRepairCost } from "@/lib/geo-intelligence";
 import ProjectMapCard from "@/components/ProjectMapCard";
 import { getProjectsWithCoords, type TrackedProject } from "@/lib/capital-projects";
 import type { Report } from "@/lib/types";
@@ -27,9 +28,9 @@ const CATEGORY_FILTERS = [
 
 const STATUS_FILTERS = [
   { value: "all", label: "All" },
-  { value: "unresolved", label: "Open" },
-  { value: "in_progress", label: "In Progress" },
-  { value: "resolved", label: "Resolved" },
+  { value: "unresolved", label: "Reported" },
+  { value: "in_progress", label: "Being Fixed" },
+  { value: "resolved", label: "Marked Fixed" },
 ];
 
 // Status to color mapping for map markers
@@ -271,7 +272,7 @@ export default function MapPage() {
           source: r.source,
           status: r.status,
           pipelineIdx: getPipelineIndex(r.status),
-          statusLabel: ["Open", "Assigned", "In Progress", "Resolved", "Verified"][getPipelineIndex(r.status)],
+          statusLabel: ["Reported", "City responded", "Being fixed", "Marked fixed", "Fix confirmed"][getPipelineIndex(r.status)],
           category: r.category,
           supporters_count: r.supporters_count,
           contractor_name: r.contractor_name || "",
@@ -493,9 +494,20 @@ export default function MapPage() {
                       <h3 className="text-[14px] font-semibold text-white leading-tight line-clamp-2 mb-1">
                         {filterTitle(selectedReport.title, selectedReport.category)}
                       </h3>
-                      {selectedReport.neighborhood && (
-                        <p className="text-[11px] text-[var(--fc-muted)] mb-2">{selectedReport.neighborhood}</p>
-                      )}
+                      {/* Cost chip + neighborhood */}
+                      <div className="flex items-center gap-2 mt-1.5 mb-2">
+                        {(() => {
+                          const cost = estimateRepairCost(selectedReport.category);
+                          return (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[var(--fc-orange)]/[0.08] border border-[var(--fc-orange)]/15 text-[10px] text-[var(--fc-orange)] font-semibold">
+                              💰 {filterCost(cost.range, cost.avg)}
+                            </span>
+                          );
+                        })()}
+                        {selectedReport.neighborhood && (
+                          <span className="text-[10px] text-[var(--fc-muted)]">{selectedReport.neighborhood}</span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-3">
                         <span className="text-[11px] text-[var(--fc-muted)]">
                           🐾 {selectedReport.supporters_count} affected
