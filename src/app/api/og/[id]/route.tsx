@@ -1,5 +1,4 @@
 import { ImageResponse } from "next/og";
-import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "edge";
 
@@ -51,42 +50,17 @@ function statusText(status: string): string {
   }
 }
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const supabase = createClient(supabaseUrl, supabaseKey);
-
-  const { data: report } = await supabase
-    .from("reports")
-    .select("title,status,category,neighborhood,supporters_count,created_at,lat,lng")
-    .eq("id", params.id)
-    .single();
-
-  const title = report?.title ?? "NYC Infrastructure Issue";
-  const status = report?.status ?? "open";
-  const category = report?.category ?? "other";
-  const neighborhood = report?.neighborhood ?? "New York City";
-  const affected = report?.supporters_count ?? 0;
-  const estCost = getEstCost(category);
-  const daysOpen = report?.created_at
-    ? Math.max(1, Math.floor((Date.now() - new Date(report.created_at).getTime()) / 86400000))
-    : 0;
-
-  // Truncate title for display
+function renderCard(opts: {
+  title: string;
+  estCost: string;
+  status: string;
+  neighborhood: string;
+  affected: number;
+  daysOpen: number;
+  subline: string;
+}) {
+  const { title, estCost, status, neighborhood, affected, daysOpen, subline } = opts;
   const displayTitle = title.length > 70 ? title.slice(0, 67) + "..." : title;
-
-  // Dharmaraj voice: cold subline under the cost
-  const isOpen = status !== "fixed" && status !== "verified";
-  const subline = isOpen
-    ? daysOpen > 14
-      ? `${daysOpen} days. No one's moved.`
-      : daysOpen > 1
-      ? `Filed ${daysOpen} days ago. Still waiting.`
-      : "Just filed. Clock starts now."
-    : "Resolved.";
 
   return new ImageResponse(
     (
@@ -158,7 +132,6 @@ export async function GET(
                   fontSize: 24,
                   fontWeight: 900,
                   color: "white",
-                  boxShadow: "0 0 24px rgba(232, 101, 43, 0.4), 0 0 60px rgba(232, 101, 43, 0.15)",
                 }}
               >
                 FC
@@ -180,11 +153,10 @@ export async function GET(
                     color: "rgba(255,255,255,0.35)",
                     fontSize: 13,
                     letterSpacing: 3,
-                    textTransform: "uppercase",
                     display: "flex",
                   }}
                 >
-                  Point. Expose. Fix.
+                  POINT. EXPOSE. FIX.
                 </div>
               </div>
             </div>
@@ -259,11 +231,10 @@ export async function GET(
                     fontSize: 11,
                     fontWeight: 700,
                     letterSpacing: 2,
-                    textTransform: "uppercase",
                     display: "flex",
                   }}
                 >
-                  Est. Cost to Fix
+                  EST. COST TO FIX
                 </span>
                 <span
                   style={{
@@ -286,11 +257,10 @@ export async function GET(
                       fontSize: 11,
                       fontWeight: 700,
                       letterSpacing: 2,
-                      textTransform: "uppercase",
                       display: "flex",
                     }}
                   >
-                    Open
+                    OPEN
                   </span>
                   <span
                     style={{
@@ -314,11 +284,10 @@ export async function GET(
                       fontSize: 11,
                       fontWeight: 700,
                       letterSpacing: 2,
-                      textTransform: "uppercase",
                       display: "flex",
                     }}
                   >
-                    Affected
+                    AFFECTED
                   </span>
                   <span
                     style={{
@@ -340,7 +309,6 @@ export async function GET(
                 color: "rgba(255,255,255,0.35)",
                 fontSize: 18,
                 fontWeight: 500,
-                fontStyle: "italic",
                 display: "flex",
                 marginTop: 4,
               }}
@@ -358,9 +326,6 @@ export async function GET(
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 16, display: "flex" }}>
-                📍
-              </span>
               <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 16, fontWeight: 500, display: "flex" }}>
                 {neighborhood}
               </span>
@@ -371,11 +336,10 @@ export async function GET(
                 fontSize: 14,
                 fontWeight: 700,
                 letterSpacing: 3,
-                textTransform: "uppercase",
                 display: "flex",
               }}
             >
-              fatcatsapp.com
+              FATCATSAPP.COM
             </span>
           </div>
         </div>
@@ -394,6 +358,76 @@ export async function GET(
     {
       width: 1200,
       height: 630,
+      headers: {
+        "Cache-Control": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
+      },
     }
   );
+}
+
+export async function GET(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // Try to fetch from Supabase for real data
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    let title = "NYC Infrastructure Issue";
+    let status = "open";
+    let category = "other";
+    let neighborhood = "New York City";
+    let affected = 0;
+    let daysOpen = 0;
+
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        const { data: report } = await supabase
+          .from("reports")
+          .select("title,status,category,neighborhood,supporters_count,created_at")
+          .eq("id", params.id)
+          .single();
+
+        if (report) {
+          title = report.title ?? title;
+          status = report.status ?? status;
+          category = report.category ?? category;
+          neighborhood = report.neighborhood ?? neighborhood;
+          affected = report.supporters_count ?? 0;
+          daysOpen = report.created_at
+            ? Math.max(1, Math.floor((Date.now() - new Date(report.created_at).getTime()) / 86400000))
+            : 0;
+        }
+      } catch {
+        // Supabase failed — use defaults
+      }
+    }
+
+    const estCost = getEstCost(category);
+    const isOpen = status !== "fixed" && status !== "verified";
+    const subline = isOpen
+      ? daysOpen > 14
+        ? `${daysOpen} days. No one has moved.`
+        : daysOpen > 1
+        ? `Filed ${daysOpen} days ago. Still waiting.`
+        : "Just filed. Clock starts now."
+      : "Resolved.";
+
+    return renderCard({ title, estCost, status, neighborhood, affected, daysOpen, subline });
+  } catch {
+    // If anything fails, return a generic FatCats card (never return empty)
+    return renderCard({
+      title: "NYC Infrastructure Issue",
+      estCost: "$2K",
+      status: "open",
+      neighborhood: "New York City",
+      affected: 0,
+      daysOpen: 0,
+      subline: "Point. Expose. Fix.",
+    });
+  }
 }

@@ -35,15 +35,15 @@ export interface ShareCounts {
 /**
  * Generate simulated share counts for a report.
  * Deterministic based on reportId so they stay consistent.
- * Weighted by supporters_count to feel proportional.
+ * Every report shows SOME shares — social proof that others are amplifying.
  */
 export function getShareCounts(reportId: string, supportersCount: number): ShareCounts {
   const h = hashSeed(reportId);
-  const base = Math.max(1, Math.floor(supportersCount * 0.6));
 
-  const x = Math.floor(seededRandom(h + 1) * base * 0.8) + (supportersCount > 10 ? 3 : 0);
-  const reddit = Math.floor(seededRandom(h + 2) * base * 0.3) + (supportersCount > 15 ? 2 : 0);
-  const whatsapp = Math.floor(seededRandom(h + 3) * base * 0.5) + (supportersCount > 5 ? 1 : 0);
+  // Base shares: every report gets a minimum floor + scale with supporters
+  const x = 3 + Math.floor(seededRandom(h + 1) * 12) + Math.floor(supportersCount * 0.3);
+  const reddit = 1 + Math.floor(seededRandom(h + 2) * 6) + Math.floor(supportersCount * 0.1);
+  const whatsapp = 2 + Math.floor(seededRandom(h + 3) * 8) + Math.floor(supportersCount * 0.2);
   const total = x + reddit + whatsapp;
 
   return { x, reddit, whatsapp, total };
@@ -66,11 +66,8 @@ export function getCommunityProof(reportId: string, supportersCount: number): Co
   // Weekly exposés: 180-380 range (city-wide)
   const weeklyExposés = 180 + Math.floor(seededRandom(h + 10) * 200);
 
-  // Others confirmed: proportional to supporters
-  const othersConfirmed = Math.max(
-    Math.floor(supportersCount * 0.4),
-    Math.floor(seededRandom(h + 11) * 8) + 3
-  );
+  // Others confirmed: always meaningful, scales with supporters
+  const othersConfirmed = 5 + Math.floor(seededRandom(h + 11) * 15) + Math.floor(supportersCount * 0.5);
 
   // Fixed this month: 8-24 range
   const fixedThisMonth = 8 + Math.floor(seededRandom(h + 12) * 16);
