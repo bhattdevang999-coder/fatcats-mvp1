@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { getViralHandles, getViralHashtags } from "@/lib/viral-share";
 
 interface Official {
   role: string;       // "Council District 7" or "NYC DOT" or "RoadFixers Inc"
@@ -58,22 +59,48 @@ export default function DeliveredTo({
 
   if (officials.length === 0) return null;
 
-  // Build the "amplify" tweet that tags all officials
+  // Build the "amplify" tweet — algorithmic reach optimized
+  // Tags officials + journalists/watchdogs, no link in body, provocative ending
   const handleAmplify = () => {
-    const handles = officials
+    const officialHandles = officials
       .filter((o) => o.handle)
-      .map((o) => o.handle)
-      .join(" ");
-    const names = officials
+      .map((o) => o.handle!);
+    const officialNames = officials
       .filter((o) => !o.handle && o.name)
-      .map((o) => o.name)
-      .join(", ");
+      .map((o) => o.name!);
+    
+    // Get high-engagement journalist/watchdog handles (category-aware)
+    const category = inferCategoryFromTitle(exposéTitle);
+    const viralHandles = getViralHandles(category);
+    const hashtags = getViralHashtags();
     
     const costLine = costRange ? `${costRange} spent. ` : "";
     const location = neighborhood || "NYC";
-    const affectedLine = stampCount > 0 ? `${stampCount} people affected. ` : "";
+    const daysLine = daysOpen > 7 ? `${daysOpen} days. No fix.` : `Open ${daysOpen} days.`;
+    const affectedLine = stampCount > 0 ? ` ${stampCount} people affected.` : "";
     
-    const text = `${costLine}${exposéTitle} — ${location}\n\nOpen ${daysOpen} days. ${affectedLine}\n\nDelivered to: ${handles}${names ? ` ${names}` : ""}\n\nPoint. Expose. Fix. → ${exposéUrl}?ref=amplify`;
+    // Delivered line — the accountability chain
+    const deliveredParts = [...officialHandles, ...officialNames].filter(Boolean);
+    const deliveredLine = deliveredParts.length > 0
+      ? `\nDelivered to: ${deliveredParts.join(", ")}`
+      : "";
+    
+    // Journalist/watchdog tags — the amplification layer
+    const ampHandles = viralHandles
+      .filter(h => !officialHandles.includes(h)) // don't double-tag
+      .slice(0, 2);
+    
+    // NO link in body (50-90% suppression). Ends with provocative question.
+    const text = [
+      `${costLine}${exposéTitle} — ${location}`,
+      "",
+      `${daysLine}${affectedLine}`,
+      deliveredLine,
+      "",
+      `${ampHandles.join(" ")} — who signed off on this?`,
+      "",
+      hashtags,
+    ].filter(Boolean).join("\n").trim();
     
     window.open(
       `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
@@ -82,6 +109,20 @@ export default function DeliveredTo({
     );
     setAmplified(true);
   };
+
+  // Rough category inference from title for handle selection
+  function inferCategoryFromTitle(title: string): string {
+    const t = title.toLowerCase();
+    if (t.includes("pothole")) return "pothole";
+    if (t.includes("road") || t.includes("pavement")) return "road_damage";
+    if (t.includes("sidewalk")) return "sidewalk";
+    if (t.includes("streetlight") || t.includes("street light") || t.includes("light")) return "street_light";
+    if (t.includes("traffic") || t.includes("signal")) return "traffic_signal";
+    if (t.includes("water") || t.includes("hydrant")) return "water";
+    if (t.includes("sewer") || t.includes("drain")) return "sewer";
+    if (t.includes("trash") || t.includes("garbage") || t.includes("sanitation")) return "trash";
+    return "other";
+  }
 
   // Icon for each official type
   const typeIcon = (type: string) => {
