@@ -19,6 +19,8 @@ import DeliveredTo from "@/components/DeliveredTo";
 import { hasSeenFollowNudge, markFollowNudgeSeen } from "@/lib/follows";
 import { ReactionBar, CommentSection, CommentCountBadge } from "@/components/CommunityEngagement";
 import { getCommunityProof } from "@/lib/social-proof";
+import { SameBlockSection, WorstRightNow, BeforeYouGo, SessionDepthBadge } from "@/components/RabbitHole";
+import { AddressCapture, FloatingAddressNudge } from "@/components/AddressGate";
 import Image from "next/image";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -845,6 +847,38 @@ export default function ExposeClient() {
           <p className="text-[11px] text-[var(--fc-muted)] text-center pb-2">
             Every exposé is a receipt. Thanks for helping your city.
           </p>
+
+          {/* ─── RABBIT HOLE: pulls them deeper ─── */}
+
+          {/* Session depth — "5 exposés uncovered" dopamine hit */}
+          <div className="py-2">
+            <SessionDepthBadge />
+          </div>
+
+          {/* Same block, same story — nearby issues */}
+          <div className="py-3">
+            <SameBlockSection
+              currentId={report.id}
+              lat={report.lat}
+              lng={report.lng}
+              neighborhood={report.neighborhood}
+            />
+          </div>
+
+          {/* The worst right now — outrage-ranked trending issues */}
+          <div className="py-3">
+            <WorstRightNow currentId={report.id} />
+          </div>
+
+          {/* ─── ADDRESS GATE: subliminal top-of-funnel ─── */}
+          <div id="address-gate">
+            <AddressCapture context={report.neighborhood} />
+          </div>
+
+          {/* Before you go — one more compelling issue */}
+          <div className="py-3 mb-20">
+            <BeforeYouGo currentId={report.id} />
+          </div>
         </div>
 
         {/* Follow nudge — compact floating pill on right side */}
@@ -882,6 +916,9 @@ export default function ExposeClient() {
             </div>
           </div>
         )}
+
+        {/* Floating address nudge for users who scroll past */}
+        <FloatingAddressNudge />
 
         {/* Sticky share bar at bottom — X, Reddit, Share */}
         <ShareSheet

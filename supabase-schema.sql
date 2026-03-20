@@ -95,3 +95,21 @@ ALTER TABLE capital_projects ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can read capital_projects" ON capital_projects FOR SELECT USING (true);
 CREATE POLICY "Anyone can insert capital_projects" ON capital_projects FOR INSERT WITH CHECK (true);
 CREATE POLICY "Anyone can update capital_projects" ON capital_projects FOR UPDATE USING (true);
+
+-- 7. Block watchers — address-based lead capture (top-of-funnel)
+CREATE TABLE IF NOT EXISTS block_watchers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz DEFAULT now(),
+  device_hash text UNIQUE NOT NULL,
+  address text NOT NULL,
+  email text,
+  source text DEFAULT 'web_gate'
+);
+
+CREATE INDEX IF NOT EXISTS idx_block_watchers_device ON block_watchers(device_hash);
+CREATE INDEX IF NOT EXISTS idx_block_watchers_address ON block_watchers(address);
+
+ALTER TABLE block_watchers ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can read block_watchers" ON block_watchers FOR SELECT USING (true);
+CREATE POLICY "Anyone can insert block_watchers" ON block_watchers FOR INSERT WITH CHECK (true);
+CREATE POLICY "Anyone can update block_watchers" ON block_watchers FOR UPDATE USING (true);
