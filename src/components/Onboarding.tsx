@@ -18,16 +18,16 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const SCREENS = [
   {
-    // SCREEN 1: The punch
+    // SCREEN 1: The punch — cold, factual, no warmth
     topline: "$2.1 billion",
-    headline: "went missing from NYC projects last year.",
-    subline: "Exposed by people with a phone camera. Not politicians.",
+    headline: "spent on NYC projects that still aren't fixed.",
+    subline: "The receipts are public. No one was looking.",
     accent: "from-red-500/20 to-transparent",
   },
   {
-    // SCREEN 2: The weapon
+    // SCREEN 2: The weapon — investigative, not inviting
     topline: "Point. Expose. Fix.",
-    headline: "See something broken? You're the investigator now.",
+    headline: "Every photo is a receipt. Every receipt is permanent.",
     subline: null,
     accent: "from-[#E8652B]/20 to-transparent",
   },
@@ -115,7 +115,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
               onClick={() => setStep(step + 1)}
               className="w-full h-13 py-3.5 rounded-xl bg-[var(--fc-orange)] hover:bg-[var(--fc-orange-hover)] text-white font-bold text-[15px] transition-colors active:scale-[0.98]"
             >
-              Show me
+              See the receipts
             </button>
             <button
               onClick={onComplete}

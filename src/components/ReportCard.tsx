@@ -256,7 +256,7 @@ export default function ReportCard({ report }: { report: Report }) {
   return (
     <Link href={`/expose/${report.id}`} className="block">
       <div className="glass-card overflow-hidden animate-card-entrance" style={{ animationDelay: `${Math.random() * 0.15}s` }}>
-        {/* Hero image */}
+        {/* Hero image / cost-number fallback */}
         <div className="w-full h-[180px] bg-[var(--fc-surface-2)] relative overflow-hidden">
           {heroSrc ? (
             <img
@@ -270,26 +270,46 @@ export default function ReportCard({ report }: { report: Report }) {
               }}
             />
           ) : null}
-          {/* Branded fallback layer (always behind) */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-[var(--fc-surface)] to-[var(--fc-bg)] -z-10">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--fc-orange)" strokeWidth="1.2" strokeLinecap="round" opacity="0.3">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-              <circle cx="12" cy="9" r="2.5" />
-            </svg>
-            <span className="text-[11px] text-[var(--fc-muted)] mt-2 opacity-50">311 Report</span>
-          </div>
-          <div className="absolute inset-0 bg-gradient-to-t from-[var(--fc-surface)]/80 via-transparent to-transparent" />
-          <div className="absolute bottom-3 left-3">
+          {/* Cost-number-as-hero fallback — when no photo, the dollar amount IS the visual */}
+          {!hasPhoto && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#1B2A4A] via-[var(--fc-bg)] to-[#0D1117] z-[1]">
+              {/* Faint grid texture */}
+              <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.5) 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+              {/* Big cost number */}
+              <span className="text-[42px] font-black text-[var(--fc-orange)] leading-none tracking-tight">
+                {filterCost(costData.range, costData.avg)}
+              </span>
+              <span className="text-[11px] text-white/30 font-semibold uppercase tracking-[0.15em] mt-2">
+                Exposed
+              </span>
+              {/* Category label */}
+              <span className="text-[10px] text-[var(--fc-muted)] mt-1 opacity-60">
+                {report.neighborhood || report.category}
+              </span>
+            </div>
+          )}
+          {/* Branded fallback layer (behind everything) */}
+          {hasPhoto && !heroSrc && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-[var(--fc-surface)] to-[var(--fc-bg)] -z-10">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--fc-orange)" strokeWidth="1.2" strokeLinecap="round" opacity="0.3">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                <circle cx="12" cy="9" r="2.5" />
+              </svg>
+              <span className="text-[11px] text-[var(--fc-muted)] mt-2 opacity-50">311 Report</span>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-[var(--fc-surface)]/80 via-transparent to-transparent z-[2]" />
+          <div className="absolute bottom-3 left-3 z-[3]">
             <StatusPill status={report.status} />
           </div>
           {/* Urgency indicator — days open */}
           {days >= 14 && pipelineIdx < 3 && (
-            <div className="absolute top-3 left-3 px-2 py-0.5 rounded-md bg-red-500/20 border border-red-500/30">
+            <div className="absolute top-3 left-3 z-[3] px-2 py-0.5 rounded-md bg-red-500/20 border border-red-500/30">
               <span className="text-[9px] font-bold text-red-400">OPEN {days} DAYS</span>
             </div>
           )}
           {isVerified && (
-            <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/20 border border-emerald-400/30">
+            <div className="absolute top-3 right-3 z-[3] flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/20 border border-emerald-400/30">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
