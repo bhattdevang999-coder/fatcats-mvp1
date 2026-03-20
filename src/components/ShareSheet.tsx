@@ -32,6 +32,12 @@ function ShareUpIcon({ size = 20 }: { size?: number }) {
   );
 }
 
+interface DeliveredOfficial {
+  name?: string;
+  handle?: string;
+  role: string;
+}
+
 interface ShareSheetProps {
   title: string;
   neighborhood?: string | null;
@@ -48,6 +54,8 @@ interface ShareSheetProps {
   /** When provided in sticky mode, renders a Follow bell as the first button */
   reportId?: string;
   projectId?: string;
+  /** Officials auto-identified by the system — included in share text */
+  deliveredOfficials?: DeliveredOfficial[];
 }
 
 function addUtm(baseUrl: string, source: string): string {
@@ -71,6 +79,7 @@ export default function ShareSheet({
   variant = "inline",
   reportId,
   projectId,
+  deliveredOfficials,
 }: ShareSheetProps) {
   const [showMore, setShowMore] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -83,7 +92,11 @@ export default function ShareSheet({
     const councilTag = councilMemberHandle ? ` ${councilMemberHandle}` : "";
     const costLead = costRange ? `${costRange} spent. ` : "";
     const areaLine = totalAreaSpend && nearbyCount ? `${nearbyCount} issues within ~3 blocks = ${totalAreaSpend} in taxpayer money. ` : "";
-    const text = `${costLead}${title} — ${neighborhood || "NYC"}\n\nOpen ${daysOpen} days. ${affected}${areaLine}\n\n${agencyHandle}${councilTag} what's the plan?\n\nPoint. Expose. Fix. → ${shareUrl}`;
+    // Build "Delivered to" line from auto-detected officials
+    const deliveredLine = deliveredOfficials && deliveredOfficials.length > 0
+      ? `\n\nDelivered to: ${deliveredOfficials.map(o => o.handle || o.name || o.role).join(", ")}`
+      : "";
+    const text = `${costLead}${title} — ${neighborhood || "NYC"}\n\nOpen ${daysOpen} days. ${affected}${areaLine}${deliveredLine}\n\n${agencyHandle}${councilTag} what's the plan?\n\nPoint. Expose. Fix. → ${shareUrl}`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };
 
@@ -104,9 +117,12 @@ export default function ShareSheet({
     if (navigator.share) {
       try {
         const costLead = costRange ? `${costRange} spent. ` : "";
+        const deliveredNative = deliveredOfficials && deliveredOfficials.length > 0
+          ? ` Delivered to: ${deliveredOfficials.map(o => o.handle || o.name || o.role).join(", ")}.`
+          : "";
         await navigator.share({
           title: `${costLead}${title} — ${neighborhood || "NYC"}`,
-          text: `${costLead}${title} — ${neighborhood || "NYC"}. ${affected}Point. Expose. Fix.`,
+          text: `${costLead}${title} — ${neighborhood || "NYC"}. ${affected}${deliveredNative} Point. Expose. Fix.`,
           url: shareUrl,
         });
       } catch {}

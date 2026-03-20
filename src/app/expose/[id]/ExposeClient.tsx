@@ -15,6 +15,7 @@ import { filterTitle, filterCost } from "@/lib/voice-filter";
 import type { GeoIntelligence } from "@/lib/geo-intelligence";
 import { IntelLogo } from "@/components/FatCatsIntel";
 import FollowButton from "@/components/FollowButton";
+import DeliveredTo from "@/components/DeliveredTo";
 import { hasSeenFollowNudge, markFollowNudgeSeen } from "@/lib/follows";
 import { ReactionBar, CommentSection, CommentCountBadge } from "@/components/CommunityEngagement";
 import Image from "next/image";
@@ -418,6 +419,32 @@ export default function ExposeClient() {
   const flavorEmoji = selectedFlavor ? FLAVOR_REACTIONS.find((r) => r.label === selectedFlavor)?.emoji : null;
   const daysOpen = Math.max(1, Math.floor((Date.now() - new Date(report.created_at).getTime()) / 86400000));
 
+  // Build "Delivered to" officials list from geo-intel + report data
+  const deliveredOfficials: { role: string; name?: string; handle?: string; type: "council" | "agency" | "contractor" }[] = [];
+  if (geoIntel?.councilMember) {
+    deliveredOfficials.push({
+      role: `Council District ${geoIntel.councilMember.district}`,
+      name: geoIntel.councilMember.name,
+      handle: geoIntel.councilMember.twitterHandle || undefined,
+      type: "council",
+    });
+  }
+  const agencyName = getCategoryAgency(report.category);
+  if (agencyName) {
+    deliveredOfficials.push({
+      role: agencyName,
+      handle: getAgencyHandle(report.category) || undefined,
+      type: "agency",
+    });
+  }
+  if (report.contractor_name) {
+    deliveredOfficials.push({
+      role: report.contractor_name,
+      name: report.contractor_name,
+      type: "contractor",
+    });
+  }
+
   return (
     <AppShell>
       <div className="max-w-lg mx-auto animate-fade-in pb-20">
@@ -480,6 +507,19 @@ export default function ExposeClient() {
           </div>
 
           {report.description && <p className="text-[14px] text-white/75 leading-relaxed">{report.description}</p>}
+
+          {/* Delivered To — Dharmaraj already notified these officials */}
+          {deliveredOfficials.length > 0 && (
+            <DeliveredTo
+              officials={deliveredOfficials}
+              exposéUrl={shareUrl}
+              exposéTitle={report.title}
+              neighborhood={report.neighborhood}
+              costRange={estimateRepairCost(report.category).range}
+              daysOpen={daysOpen}
+              stampCount={stampCount}
+            />
+          )}
 
           {/* ✨ "I'm Affected Too" prominent CTA — THE gateway drug */}
           <div className="space-y-3">
@@ -829,6 +869,7 @@ export default function ExposeClient() {
           nearbyCount={geoIntel?.nearbyCount}
           variant="sticky"
           reportId={report.id}
+          deliveredOfficials={deliveredOfficials.map(o => ({ role: o.role, name: o.name, handle: o.handle }))}
         />
 
         {/* Milestone celebration overlay */}
