@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import FollowButton from "@/components/FollowButton";
+import { buildXShareText, buildWhatsAppShareText, buildRedditTitle, buildNativeShareText } from "@/lib/viral-share";
 
 // X (Twitter) icon
 function XLogo({ size = 20 }: { size?: number }) {
@@ -63,18 +64,35 @@ function addUtm(baseUrl: string, source: string): string {
   return `${baseUrl}${sep}ref=${source}&utm_source=${source}&utm_medium=share&utm_campaign=expose`;
 }
 
+/** Parse a cost range string like "$800–$5K" into a rough average number */
+function parseCostAvg(range: string): number {
+  const nums = range.match(/\$(\d+[.,]?\d*)(K|M)?/gi) || [];
+  const values = nums.map(s => {
+    const n = parseFloat(s.replace(/[$,]/g, ""));
+    if (s.toUpperCase().includes("M")) return n * 1_000_000;
+    if (s.toUpperCase().includes("K")) return n * 1_000;
+    return n;
+  });
+  if (values.length >= 2) return Math.round((values[0] + values[1]) / 2);
+  if (values.length === 1) return values[0];
+  return 1500; // fallback
+}
+
 export default function ShareSheet({
   title,
   neighborhood,
   url,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   category,
   stampCount,
   createdAt,
+  // agencyHandle replaced by viral-share smart handle system
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   agencyHandle,
   councilMemberHandle,
   costRange,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   totalAreaSpend,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   nearbyCount,
   variant = "inline",
   reportId,
@@ -85,44 +103,48 @@ export default function ShareSheet({
   const [copied, setCopied] = useState(false);
 
   const daysOpen = Math.max(1, Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000));
-  const affected = stampCount > 0 ? `${stampCount} people affected. ` : "";
 
-  const handleX = () => {
-    const shareUrl = addUtm(url, "twitter");
-    const councilTag = councilMemberHandle ? ` ${councilMemberHandle}` : "";
-    const costLead = costRange ? `${costRange} spent. ` : "";
-    const areaLine = totalAreaSpend && nearbyCount ? `${nearbyCount} issues within ~3 blocks = ${totalAreaSpend} in taxpayer money. ` : "";
-    // Build "Delivered to" line from auto-detected officials
-    const deliveredLine = deliveredOfficials && deliveredOfficials.length > 0
-      ? `\n\nDelivered to: ${deliveredOfficials.map(o => o.handle || o.name || o.role).join(", ")}`
-      : "";
-    const text = `${costLead}${title} — ${neighborhood || "NYC"}\n\nOpen ${daysOpen} days. ${affected}${areaLine}${deliveredLine}\n\n${agencyHandle}${councilTag} what's the plan?\n\nPoint. Expose. Fix. → ${shareUrl}`;
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+  // Build share context once — used by all platform handlers
+  const shareCtx = {
+    title,
+    neighborhood: neighborhood || "NYC",
+    costRange: costRange || "",
+    costAvg: costRange ? parseCostAvg(costRange) : 1500,
+    daysOpen,
+    affected: stampCount,
+    category: category || "other",
+    url,
+    councilHandle: councilMemberHandle,
+    deliveredOfficials,
   };
 
+  // X/Twitter — no link in main tweet (algorithmic suppression), link in reply
+  const handleX = () => {
+    const shareUrl = addUtm(url, "twitter");
+    const { mainTweet } = buildXShareText({ ...shareCtx, url: shareUrl });
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(mainTweet)}`, "_blank", "noopener,noreferrer");
+  };
+
+  // Reddit — rage-optimized title for r/nyc
   const handleReddit = () => {
     const shareUrl = addUtm(url, "reddit");
-    const subreddit = "nyc";
-    const costLead = costRange ? `${costRange} spent on ` : "";
-    const redditTitle = `${costLead}${title.toLowerCase()} in ${neighborhood || "NYC"} — open ${daysOpen} days, ${stampCount} affected. Here's the receipt.`;
+    const redditTitle = buildRedditTitle({ ...shareCtx, url: shareUrl });
     window.open(
-      `https://www.reddit.com/r/${subreddit}/submit?type=link&url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(redditTitle)}`,
+      `https://www.reddit.com/r/nyc/submit?type=link&url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(redditTitle)}`,
       "_blank",
       "noopener,noreferrer"
     );
   };
 
+  // Native share (iOS/Android) — short, OG card does the heavy lifting
   const handleNativeShare = async () => {
     const shareUrl = addUtm(url, "native");
     if (navigator.share) {
       try {
-        const costLead = costRange ? `${costRange} spent. ` : "";
-        const deliveredNative = deliveredOfficials && deliveredOfficials.length > 0
-          ? ` Delivered to: ${deliveredOfficials.map(o => o.handle || o.name || o.role).join(", ")}.`
-          : "";
+        const native = buildNativeShareText({ ...shareCtx, url: shareUrl });
         await navigator.share({
-          title: `${costLead}${title} — ${neighborhood || "NYC"}`,
-          text: `${costLead}${title} — ${neighborhood || "NYC"}. ${affected}${deliveredNative} Point. Expose. Fix.`,
+          title: native.title,
+          text: native.text,
           url: shareUrl,
         });
       } catch {}
@@ -138,10 +160,10 @@ export default function ShareSheet({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // WhatsApp — one gut-punch line + link (OG card preview carries the visual)
   const handleWhatsApp = () => {
     const shareUrl = addUtm(url, "whatsapp");
-    const costLead = costRange ? `${costRange} spent. ` : "";
-    const text = `${costLead}${title} — ${neighborhood || "NYC"}. ${shareUrl}`;
+    const text = buildWhatsAppShareText({ ...shareCtx, url: shareUrl });
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };
 

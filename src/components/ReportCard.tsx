@@ -3,9 +3,10 @@
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import type { Report } from "@/lib/types";
-import { getPipelineIndex, getAgencyHandle, FLAVOR_REACTIONS } from "@/lib/types";
+import { getPipelineIndex, FLAVOR_REACTIONS } from "@/lib/types";
 import { estimateRepairCost } from "@/lib/geo-intelligence";
 import { filterTitle, filterCost } from "@/lib/voice-filter";
+import { buildFeedXShareText, buildRedditTitle } from "@/lib/viral-share";
 import StatusPill from "./StatusPill";
 import { PipelineSteps } from "./StatusPill";
 import FollowButton from "./FollowButton";
@@ -208,46 +209,67 @@ export default function ReportCard({ report }: { report: Report }) {
     }
   }, [stamped]);
 
-  // Post on X (pre-filled)
+  // Post on X — algorithmic reach optimized
+  // No link in main tweet (50-90% suppression). Provocative question ending.
   const handlePostX = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const url = `${window.location.origin}/expose/${report.id}`;
-    const agencyHandle = getAgencyHandle(report.category);
-    const affected = stampCount > 0 ? `${stampCount} people affected. ` : "";
-    const costLine = costData.range ? `Est. cost: ${costData.range}. ` : "";
-    const text = `🚨 ${report.title} — ${report.neighborhood || "NYC"}\n\nOpen ${days} days. ${affected}${costLine}\n${agencyHandle} what's the plan?\n\n${url}\n#FatCatsNYC #PointExposeFix`;
+    const shareCtx = {
+      title: filterTitle(report.title, report.category),
+      neighborhood: report.neighborhood || "NYC",
+      costRange: costData.range,
+      costAvg: costData.avg,
+      daysOpen: days,
+      affected: stampCount,
+      category: report.category,
+      url: `${window.location.origin}/expose/${report.id}`,
+    };
+    const text = buildFeedXShareText(shareCtx);
     window.open(
       `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
       "_blank",
       "noopener,noreferrer"
     );
-  }, [report, stampCount, days, costData.range]);
+  }, [report, stampCount, days, costData]);
 
-  // Post on Reddit
+  // Post on Reddit — rage-bait title optimized for r/nyc
   const handlePostReddit = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const url = `${window.location.origin}/expose/${report.id}`;
-    const redditTitle = `${report.title} — ${report.neighborhood || "NYC"} (${days} days, ${stampCount} affected)`;
+    const redditTitle = buildRedditTitle({
+      title: filterTitle(report.title, report.category),
+      neighborhood: report.neighborhood || "NYC",
+      costRange: costData.range,
+      costAvg: costData.avg,
+      daysOpen: days,
+      affected: stampCount,
+      category: report.category,
+      url,
+    });
     window.open(
       `https://www.reddit.com/r/nyc/submit?type=link&url=${encodeURIComponent(url)}&title=${encodeURIComponent(redditTitle)}`,
       "_blank",
       "noopener,noreferrer"
     );
-  }, [report, stampCount, days]);
+  }, [report, stampCount, days, costData]);
 
-  // Share
+  // Native share (iOS/Android) — short, OG card carries the visual
   const handleShare = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const url = `${window.location.origin}/expose/${report.id}`;
+    const costLead = costData.range ? `${costData.range} spent. ` : "";
     if (navigator.share) {
-      navigator.share({ title: report.title, text: `${report.title} — ${report.neighborhood || "NYC"} via @FatCatsApp #FatCatsNYC #PointExposeFix`, url }).catch(() => {});
+      navigator.share({
+        title: `${filterTitle(report.title, report.category)} — ${report.neighborhood || "NYC"}`,
+        text: `${costLead}${filterTitle(report.title, report.category)} — ${report.neighborhood || "NYC"}. Still not fixed. Point. Expose. Fix.`,
+        url,
+      }).catch(() => {});
     } else {
       navigator.clipboard.writeText(url);
     }
-  }, [report]);
+  }, [report, costData]);
 
   const flavorEmoji = selectedFlavor
     ? FLAVOR_REACTIONS.find((r) => r.label === selectedFlavor)?.emoji
