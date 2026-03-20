@@ -11,6 +11,7 @@ import { getShareCounts } from "@/lib/social-proof";
 import StatusPill from "./StatusPill";
 import { PipelineSteps } from "./StatusPill";
 import FollowButton from "./FollowButton";
+import CoSignButton from "./CoSignButton";
 import { ReactionBar, CommentCountBadge } from "./CommunityEngagement";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -381,9 +382,16 @@ export default function ReportCard({ report }: { report: Report }) {
           <CommentCountBadge itemId={report.id} />
         </div>
 
-        {/* Action bar: Paw Stamp + X + Reddit + Share */}
+        {/* Action bar: Co-Sign + Paw + Follow + X + Reddit + Share */}
         <div className="flex items-center gap-2 px-3.5 py-2.5 border-t border-white/[0.04]">
-          {/* Paw stamp — tap to stamp/unstamp, long-press for flavor reactions */}
+          {/* Co-sign — the primary weighted action */}
+          <CoSignButton
+            reportId={report.id}
+            initialCount={report.cosign_count || 0}
+            compact
+          />
+
+          {/* Paw stamp — quick reaction, long-press for flavors */}
           <div className="relative">
             <button
               onMouseDown={handlePressStart}
@@ -392,19 +400,16 @@ export default function ReportCard({ report }: { report: Report }) {
               onTouchStart={handlePressStart}
               onTouchEnd={handlePressEnd}
               onClick={handleStamp}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-semibold transition-all active:scale-95 select-none ${
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-semibold transition-all active:scale-95 select-none ${
                 stamped
-                  ? "bg-[var(--fc-orange)]/15 text-[var(--fc-orange)] border border-[var(--fc-orange)]/25"
-                  : "bg-white/[0.04] text-[var(--fc-muted)] border border-white/[0.06] hover:bg-white/[0.08]"
+                  ? "text-[var(--fc-orange)]"
+                  : "text-[var(--fc-muted)] hover:text-white/60"
               }`}
             >
               <span className={`transition-transform ${stampAnim ? "animate-heart-pop" : ""}`}>
-                {flavorEmoji || <PawIcon size={16} color={stamped ? "#E8652B" : "#8B95A8"} />}
+                {flavorEmoji || <PawIcon size={14} color={stamped ? "#E8652B" : "#8B95A8"} />}
               </span>
-              <span>{stampCount}</span>
-              {stampCount > 0 && (
-                <span className="text-[9px] text-[var(--fc-muted)] font-normal ml-0.5">affected</span>
-              )}
+              {stampCount > 0 && <span>{stampCount}</span>}
             </button>
             <FlavorPopover
               visible={showFlavors}

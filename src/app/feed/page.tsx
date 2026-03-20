@@ -14,9 +14,24 @@ import { clusterReports } from "@/lib/feed-clustering";
 import { getFollowedReportIds } from "@/lib/follows";
 import { estimateRepairCost } from "@/lib/geo-intelligence";
 import { filterTitle, filterCost } from "@/lib/voice-filter";
-import { BlockWatchdogClaimCTA, InlineClaimCTA, NeighborhoodLeaderboard } from "@/components/BlockWatchdogCTA";
+import {
+  scoreFeed,
+  filterYourBlock,
+  filterJustExposed,
+  filterAboutToBlow,
+  filterHotRightNow,
+} from "@/lib/feed-engine";
+import type { ScoredReport } from "@/lib/feed-engine";
+import {
+  BlockWatchdogClaimCTA,
+  InlineClaimCTA,
+  NeighborhoodLeaderboard,
+} from "@/components/BlockWatchdogCTA";
 import MoneyPill from "@/components/MoneyPill";
 import DidYouKnowCard, { getDidYouKnowFact } from "@/components/DidYouKnowCard";
+import JustExposed from "@/components/JustExposed";
+import AboutToBlow from "@/components/AboutToBlow";
+import CoSignButton from "@/components/CoSignButton";
 import { findNearbyOverBudgetProject } from "@/lib/capital-projects";
 import type { Report } from "@/lib/types";
 import type { FeedItem } from "@/lib/feed-clustering";
@@ -46,11 +61,11 @@ function filterByPipeline(reports: Report[], filter: FilterKey): Report[] {
       case "open":
         return idx === 0;
       case "in_progress":
-        return idx === 1 || idx === 2; // assigned + in progress
+        return idx === 1 || idx === 2;
       case "resolved":
-        return idx === 3 || idx === 4; // resolved + verified
+        return idx === 3 || idx === 4;
       case "verify":
-        return idx === 3; // resolved but not yet verified — needs community check
+        return idx === 3;
       default:
         return true;
     }
@@ -108,20 +123,11 @@ function ClusterStatsBanner({ feedItems }: { feedItems: FeedItem[] }) {
   );
 }
 
-// ── Hot Topics Bar ───────────────────────────────────────────────────
+// ── Hot Topics Bar (v2 — uses feed score) ───────────────────────────
 
-function HotTopicsBar({ reports }: { reports: Report[] }) {
+function HotTopicsBar({ reports }: { reports: ScoredReport[] }) {
   const hotReports = useMemo(() => {
-    return [...reports]
-      .filter((r) => getPipelineIndex(r.status) < 3)
-      .map((r) => {
-        const cost = estimateRepairCost(r.category);
-        const daysOpen = Math.max(1, Math.floor((Date.now() - new Date(r.created_at).getTime()) / 86400000));
-        const heat = (r.supporters_count + 1) * cost.avg * Math.log2(daysOpen + 1);
-        return { ...r, heat, costRange: cost.range, daysOpen };
-      })
-      .sort((a, b) => b.heat - a.heat)
-      .slice(0, 8);
+    return filterHotRightNow(reports, 8);
   }, [reports]);
 
   if (hotReports.length === 0) return null;
@@ -130,7 +136,9 @@ function HotTopicsBar({ reports }: { reports: Report[] }) {
     <div className="mb-4 -mx-4">
       <div className="flex items-center gap-2 px-4 mb-2.5">
         <span className="text-[14px]">🔥</span>
-        <h2 className="text-[13px] font-bold text-white uppercase tracking-wider">Hot Right Now</h2>
+        <h2 className="text-[13px] font-bold text-white uppercase tracking-wider">
+          Hot Right Now
+        </h2>
         <span className="text-[10px] text-red-400 font-bold bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20 ml-1">
           {hotReports.length} burning
         </span>
@@ -157,14 +165,15 @@ function HotTopicsBar({ reports }: { reports: Report[] }) {
               <p className="text-[12px] text-white font-semibold leading-snug line-clamp-2 group-hover:text-[var(--fc-orange)] transition-colors">
                 {filterTitle(r.title, r.category)}
               </p>
-              <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--fc-muted)]">
-                <span>{r.neighborhood || "NYC"}</span>
-                {r.supporters_count > 0 && (
-                  <>
-                    <span className="opacity-40">·</span>
-                    <span>🐾 {r.supporters_count}</span>
-                  </>
-                )}
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-[10px] text-[var(--fc-muted)]">
+                  {r.neighborhood || "NYC"}
+                </span>
+                <CoSignButton
+                  reportId={r.id}
+                  initialCount={r.cosign_count || 0}
+                  compact
+                />
               </div>
             </a>
           );
@@ -174,19 +183,84 @@ function HotTopicsBar({ reports }: { reports: Report[] }) {
   );
 }
 
-// ── Flatten feed items to reports ─────────────────────────────────────
+// ── Your Block Section ───────────────────────────────────────────────
 
-function flattenFeedItems(feedItems: FeedItem[]): Report[] {
-  const reports: Report[] = [];
-  for (const item of feedItems) {
-    if (item.type === "cluster" && item.cluster) {
-      // Show lead report from each cluster
-      reports.push(item.cluster.leadReport);
-    } else if (item.report) {
-      reports.push(item.report);
-    }
-  }
-  return reports;
+function YourBlockSection({
+  reports,
+  neighborhood,
+}: {
+  reports: ScoredReport[];
+  neighborhood: string | null;
+}) {
+  if (reports.length === 0) return null;
+
+  const totalCost = reports.reduce((sum, r) => sum + r.estimatedCostAvg, 0);
+  const costLabel =
+    totalCost >= 1000
+      ? `$${(totalCost / 1000).toFixed(0)}K`
+      : `$${totalCost.toLocaleString()}`;
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-[14px]">📍</span>
+          <h2 className="text-[13px] font-bold text-white uppercase tracking-wider">
+            Your Block
+          </h2>
+          {neighborhood && (
+            <span className="text-[10px] text-[var(--fc-muted)] font-medium">
+              {neighborhood}
+            </span>
+          )}
+        </div>
+        <span className="text-[11px] font-bold text-[var(--fc-orange)]">
+          {reports.length} issue{reports.length !== 1 ? "s" : ""} · est.{" "}
+          {costLabel}
+        </span>
+      </div>
+      <div className="flex flex-col gap-3">
+        {reports.slice(0, 3).map((r) => (
+          <a
+            key={r.id}
+            href={`/expose/${r.id}`}
+            className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-[var(--fc-orange)]/10 hover:bg-white/[0.07] transition-all active:scale-[0.98]"
+          >
+            {r.photo_url && (
+              <img
+                src={r.photo_url}
+                alt=""
+                className="w-12 h-12 rounded-lg object-cover shrink-0"
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] text-white font-semibold truncate">
+                {r.title}
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[11px] text-[var(--fc-orange)] font-bold">
+                  {r.daysOpen}d open
+                </span>
+                <span className="text-[10px] text-[var(--fc-muted)]">
+                  · est. ${r.estimatedCostAvg.toLocaleString()}
+                </span>
+              </div>
+            </div>
+            <CoSignButton
+              reportId={r.id}
+              initialCount={r.cosign_count || 0}
+              compact
+            />
+          </a>
+        ))}
+        {reports.length > 3 && (
+          <p className="text-[11px] text-[var(--fc-muted)] text-center">
+            + {reports.length - 3} more on your block
+          </p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ── Page ────────────────────────────────────────────────────────────────
@@ -202,13 +276,21 @@ export default function FeedPage() {
   const [refreshing, setRefreshing] = useState(false);
   const filterScrollRef = useRef<HTMLDivElement>(null);
   const [showScrollHint, setShowScrollHint] = useState(true);
-  const [detectedNeighborhood, setDetectedNeighborhood] = useState<string | null>(null);
+  const [detectedNeighborhood, setDetectedNeighborhood] = useState<
+    string | null
+  >(null);
   const [nearbyRadius, setNearbyRadius] = useState<number>(3);
   const [nearbyProject, setNearbyProject] = useState<{
-    fms_id: string; project_name: string; original_budget: number; total_budget: number; budget_delta_pct: number;
+    fms_id: string;
+    project_name: string;
+    original_budget: number;
+    total_budget: number;
+    budget_delta_pct: number;
   } | null>(null);
   const [streakBroke, setStreakBroke] = useState(false);
   const [lostStreak, setLostStreak] = useState(0);
+  const [userLat, setUserLat] = useState<number | null>(null);
+  const [userLng, setUserLng] = useState<number | null>(null);
 
   // Check streak on mount
   useEffect(() => {
@@ -226,12 +308,17 @@ export default function FeedPage() {
     setRefreshing(false);
   }, []);
 
-  // Fetch a default MoneyPill project (worst over-budget) so it shows even without geolocation
+  // Fetch a default MoneyPill project (worst over-budget)
   useEffect(() => {
     async function loadDefaultMoneyPill() {
       try {
-        const { fetchTrackedProjects } = await import("@/lib/capital-projects");
-        const blowups = await fetchTrackedProjects({ filter: "budget_blowups", limit: 1 });
+        const { fetchTrackedProjects } = await import(
+          "@/lib/capital-projects"
+        );
+        const blowups = await fetchTrackedProjects({
+          filter: "budget_blowups",
+          limit: 1,
+        });
         if (blowups.length > 0 && !nearbyProject) {
           const p = blowups[0];
           setNearbyProject({
@@ -245,7 +332,23 @@ export default function FeedPage() {
       } catch {}
     }
     loadDefaultMoneyPill();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Silently try to get user location on first load for feed personalization
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLat(pos.coords.latitude);
+          setUserLng(pos.coords.longitude);
+        },
+        () => {
+          // Fine — anonymous feed
+        },
+        { timeout: 5000, maximumAge: 600000 }
+      );
+    }
   }, []);
 
   useEffect(() => {
@@ -275,8 +378,10 @@ export default function FeedPage() {
         async (pos) => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
+          setUserLat(lat);
+          setUserLng(lng);
 
-          // Reverse geocode to get neighborhood name
+          // Reverse geocode
           try {
             const geoRes = await fetch(
               `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?types=neighborhood,locality&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`
@@ -287,10 +392,9 @@ export default function FeedPage() {
             }
           } catch {}
 
-          // Expanding radius: try 3km, then 10km, then 25km
+          // Expanding radius
           let data = await listNearbyReports({ lat, lng, radiusKm: 3 });
           let radius = 3;
-
           if (data.length < 3) {
             data = await listNearbyReports({ lat, lng, radiusKm: 10 });
             radius = 10;
@@ -305,12 +409,10 @@ export default function FeedPage() {
           setLocationLoading(false);
           setTab("near");
 
-          // Fetch nearby over-budget project for MoneyPill
           try {
             const proj = await findNearbyOverBudgetProject(lat, lng);
             if (proj) setNearbyProject(proj);
           } catch {}
-
         },
         () => {
           setLocationLoading(false);
@@ -319,7 +421,7 @@ export default function FeedPage() {
     }
   };
 
-  // ── Clustering ──────────────────────────────────────────────────────
+  // ── Feed Scoring ─────────────────────────────────────────────────────
 
   const baseReports = useMemo(() => {
     if (tab === "near" && nearby.length > 0) return nearby;
@@ -329,18 +431,42 @@ export default function FeedPage() {
     }
     return reports;
   }, [tab, reports, nearby]);
+
   const filteredReports = filterByPipeline(baseReports, filter);
 
+  // Score using the new feed engine
+  const scoredReports = useMemo(
+    () => scoreFeed(filteredReports, userLat, userLng),
+    [filteredReports, userLat, userLng]
+  );
+
+  // Feed sections
+  const yourBlockReports = useMemo(
+    () =>
+      userLat && userLng
+        ? filterYourBlock(scoredReports, userLat, userLng, 3)
+        : [],
+    [scoredReports, userLat, userLng]
+  );
+
+  const justExposedReports = useMemo(
+    () => filterJustExposed(scoredReports, 24),
+    [scoredReports]
+  );
+
+  const aboutToBlowReports = useMemo(
+    () => filterAboutToBlow(scoredReports),
+    [scoredReports]
+  );
+
+  // Clustering (still used for cluster stats banner)
   const feedItems = useMemo(
     () => clusterReports(filteredReports),
     [filteredReports]
   );
 
-  // Flatten clusters into individual reports for rendering
-  const displayReports = useMemo(
-    () => flattenFeedItems(feedItems),
-    [feedItems]
-  );
+  // Main feed: scored reports (already sorted by feedScore)
+  const mainFeed = scoredReports;
 
   // Count reports in each filter for badges
   const counts: Record<FilterKey, number> = {
@@ -375,7 +501,7 @@ export default function FeedPage() {
             </button>
           ))}
 
-          {/* Pull-to-refresh button (mobile friendly) */}
+          {/* Refresh */}
           <button
             onClick={handleRefresh}
             disabled={refreshing}
@@ -399,7 +525,7 @@ export default function FeedPage() {
           </button>
         </div>
 
-        {/* Pipeline filter tabs with scroll indicator */}
+        {/* Pipeline filter tabs */}
         <div className="relative mb-4">
           <div
             ref={filterScrollRef}
@@ -431,25 +557,48 @@ export default function FeedPage() {
               </button>
             ))}
           </div>
-          {/* Scroll fade indicator */}
           {showScrollHint && (
             <div className="absolute right-0 top-0 bottom-1 w-8 bg-gradient-to-l from-[var(--fc-bg)] to-transparent pointer-events-none" />
           )}
         </div>
 
-        {/* Streak loss banner — cold, no encouragement */}
-        {!loading && streakBroke && <StreakLossBanner previousStreak={lostStreak} />}
+        {/* Streak loss banner */}
+        {!loading && streakBroke && (
+          <StreakLossBanner previousStreak={lostStreak} />
+        )}
 
-        {/* Since You Left banner */}
+        {/* Since You Left */}
         {!loading && <SinceYouLeftBanner reports={reports} />}
 
-        {/* 🔥 Hot Topics — trending horizontal scroll */}
-        {!loading && tab === "trending" && <HotTopicsBar reports={reports} />}
+        {/* ── YOUR BLOCK (if location available) ── */}
+        {!loading && tab === "trending" && yourBlockReports.length > 0 && (
+          <YourBlockSection
+            reports={yourBlockReports}
+            neighborhood={detectedNeighborhood}
+          />
+        )}
+
+        {/* ── 🚨 ABOUT TO BLOW (velocity alerts) ── */}
+        {!loading && tab === "trending" && aboutToBlowReports.length > 0 && (
+          <AboutToBlow reports={aboutToBlowReports} />
+        )}
+
+        {/* ── 🔥 HOT RIGHT NOW (horizontal scroll) ── */}
+        {!loading && tab === "trending" && (
+          <HotTopicsBar reports={scoredReports} />
+        )}
+
+        {/* ── 📡 JUST DROPPED (new exposés) ── */}
+        {!loading && tab === "trending" && justExposedReports.length > 0 && (
+          <JustExposed reports={justExposedReports} />
+        )}
 
         {/* 🏆 Neighborhood Leaderboard */}
-        {!loading && tab === "trending" && <NeighborhoodLeaderboard reports={reports} />}
+        {!loading && tab === "trending" && (
+          <NeighborhoodLeaderboard reports={reports} />
+        )}
 
-        {/* 🔍 Block Watchdog CTA (Your Block tab — when thin/empty) */}
+        {/* 🔍 Block Watchdog CTA (Near tab — when thin/empty) */}
         {!loading && tab === "near" && nearby.length < 5 && (
           <div className="mb-4">
             {nearbyRadius > 3 && (
@@ -470,10 +619,10 @@ export default function FeedPage() {
           </div>
         )}
 
-        {/* Cluster stats summary */}
+        {/* Cluster stats */}
         {!loading && <ClusterStatsBanner feedItems={feedItems} />}
 
-        {/* Loading state */}
+        {/* Loading */}
         {loading && <FeedSkeleton />}
 
         {/* Location loading */}
@@ -487,7 +636,7 @@ export default function FeedPage() {
         )}
 
         {/* Empty state */}
-        {!loading && displayReports.length === 0 && (
+        {!loading && mainFeed.length === 0 && (
           <div className="text-center py-12">
             <div className="text-4xl mb-3">
               {tab === "following"
@@ -526,30 +675,33 @@ export default function FeedPage() {
                 ? "Spot something broken? You're the investigator now."
                 : "Try a different filter or check back later."}
             </p>
-            {/* Inline Claim CTA — visible button right in the empty state */}
             {tab === "near" && (
               <div className="max-w-sm mx-auto">
-                <InlineClaimCTA detectedNeighborhood={detectedNeighborhood} />
+                <InlineClaimCTA
+                  detectedNeighborhood={detectedNeighborhood}
+                />
               </div>
             )}
           </div>
         )}
 
-        {/* Feed items — individual report cards with MoneyPill + DidYouKnow interstitials */}
-        {!loading && displayReports.length > 0 && (
+        {/* ── MAIN FEED (scored, with interstitials) ── */}
+        {!loading && mainFeed.length > 0 && (
           <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-5">
-            {displayReports.map((report, i) => (
+            {mainFeed.map((report, i) => (
               <div key={report.id}>
-                {/* DidYouKnow interstitial every 6th card (before the card) */}
+                {/* DidYouKnow interstitial every 6th card */}
                 {i > 0 && i % 6 === 0 && (
                   <div className="mb-4">
-                    <DidYouKnowCard {...getDidYouKnowFact(Math.floor(i / 6) - 1)} />
+                    <DidYouKnowCard
+                      {...getDidYouKnowFact(Math.floor(i / 6) - 1)}
+                    />
                   </div>
                 )}
                 <AnimatedCard index={i}>
                   <ReportCard report={report} />
                 </AnimatedCard>
-                {/* MoneyPill after 3rd card (once) */}
+                {/* MoneyPill after 3rd card */}
                 {i === 2 && nearbyProject && (
                   <div className="mt-4">
                     <MoneyPill

@@ -16,6 +16,8 @@ export interface Report {
   project_id: string | null;
   contract_id: string | null;
   contractor_name: string | null;
+  cosign_count: number;
+  last_cosign_at: string | null;
 }
 
 export interface ReportSupport {

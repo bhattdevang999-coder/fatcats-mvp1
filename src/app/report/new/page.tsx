@@ -11,6 +11,8 @@ import { getCouncilMemberByNeighborhood } from "@/lib/council-districts";
 import { findNearbyProjects, formatMoney } from "@/lib/capital-projects";
 import { incrementStat, recordStreakDay } from "@/lib/gamification";
 import { IntelLogo } from "@/components/FatCatsIntel";
+import { findNearDuplicates } from "@/lib/cosigns";
+import NearDuplicateSheet from "@/components/NearDuplicateSheet";
 
 const CATEGORIES = [
   { value: "pothole", label: "Pothole", icon: "🕳️" },
@@ -68,6 +70,10 @@ export default function ReportNewPage() {
   // Geo-intelligence state
   const [geoIntel, setGeoIntel] = useState<GeoIntelligence | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
+
+  // Near-duplicate detection
+  const [nearDuplicates, setNearDuplicates] = useState<Awaited<ReturnType<typeof findNearDuplicates>>>([]);
+  const [showDuplicateSheet, setShowDuplicateSheet] = useState(false);
 
   // Post-submission spending hook
   const [showSpendingHook, setShowSpendingHook] = useState(false);
@@ -134,11 +140,19 @@ export default function ReportNewPage() {
     if (lat == null || lng == null) return;
     setGeoLoading(true);
     try {
-      const intel = await getFullGeoIntelligence(lat, lng, catVal);
+      const [intel, dupes] = await Promise.all([
+        getFullGeoIntelligence(lat, lng, catVal),
+        findNearDuplicates(lat, lng, catVal),
+      ]);
       setGeoIntel(intel);
       // Update neighborhood if geo returned a better one
       if (intel.neighborhood && intel.neighborhood !== "New York City") {
         setNeighborhood(intel.neighborhood);
+      }
+      // Show near-duplicate sheet if matches found
+      if (dupes.length > 0) {
+        setNearDuplicates(dupes);
+        setShowDuplicateSheet(true);
       }
     } catch {
       // Geo intelligence failed silently
@@ -704,6 +718,23 @@ export default function ReportNewPage() {
           </div>
         )}
       </div>
+
+      {/* Near-duplicate detection sheet */}
+      {showDuplicateSheet && nearDuplicates.length > 0 && (
+        <NearDuplicateSheet
+          matches={nearDuplicates}
+          onCoSigned={(reportId) => {
+            setShowDuplicateSheet(false);
+            router.push(`/expose/${reportId}`);
+          }}
+          onFileNew={() => {
+            setShowDuplicateSheet(false);
+          }}
+          onDismiss={() => {
+            setShowDuplicateSheet(false);
+          }}
+        />
+      )}
 
       {/* Post-submission spending hook */}
       {showSpendingHook && nearbySpending && (

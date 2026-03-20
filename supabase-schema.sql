@@ -113,3 +113,31 @@ ALTER TABLE block_watchers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can read block_watchers" ON block_watchers FOR SELECT USING (true);
 CREATE POLICY "Anyone can insert block_watchers" ON block_watchers FOR INSERT WITH CHECK (true);
 CREATE POLICY "Anyone can update block_watchers" ON block_watchers FOR UPDATE USING (true);
+
+-- 8. Co-signs — weighted citizen confirmation on exposés
+CREATE TABLE IF NOT EXISTS cosigns (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz DEFAULT now(),
+  report_id uuid REFERENCES reports(id) ON DELETE CASCADE,
+  device_hash text NOT NULL,
+  user_lat double precision,
+  user_lng double precision,
+  user_neighborhood text,
+  UNIQUE(report_id, device_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cosigns_report ON cosigns(report_id);
+CREATE INDEX IF NOT EXISTS idx_cosigns_device ON cosigns(device_hash);
+CREATE INDEX IF NOT EXISTS idx_cosigns_created ON cosigns(created_at DESC);
+
+ALTER TABLE cosigns ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can read cosigns" ON cosigns FOR SELECT USING (true);
+CREATE POLICY "Anyone can insert cosigns" ON cosigns FOR INSERT WITH CHECK (true);
+
+-- Add co-sign tracking columns to reports
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS cosign_count integer DEFAULT 0;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS last_cosign_at timestamptz;
+
+-- Index for feed scoring (hot + recent)
+CREATE INDEX IF NOT EXISTS idx_reports_cosign ON reports(cosign_count DESC) WHERE cosign_count > 0;
+CREATE INDEX IF NOT EXISTS idx_reports_feed_score ON reports(supporters_count DESC, cosign_count DESC, created_at DESC);
