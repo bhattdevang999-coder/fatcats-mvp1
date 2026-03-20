@@ -44,7 +44,6 @@ export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  // Fetch report data from Supabase REST API (no SDK — pure fetch for edge compatibility)
   let title = "NYC Infrastructure Issue";
   let status = "open";
   let category = "other";
@@ -84,15 +83,23 @@ export async function GET(
   }
 
   const estCost = getEstCost(category);
-  const isOpen = status !== "fixed" && status !== "verified";
-  const subline = isOpen
-    ? daysOpen > 14
-      ? `${daysOpen} days. No one has moved.`
-      : daysOpen > 1
-        ? `Filed ${daysOpen} days ago. Still waiting.`
-        : "Just filed. Clock starts now."
-    : "Resolved.";
+  const statusColor = sColor(status);
+  const statusLabel = sText(status);
   const displayTitle = title.length > 70 ? title.slice(0, 67) + "..." : title;
+
+  // Build subline text
+  const isOpen = status !== "fixed" && status !== "verified";
+  let subline = "Resolved.";
+  if (isOpen) {
+    if (daysOpen > 14) subline = `${daysOpen} days. No one has moved.`;
+    else if (daysOpen > 1) subline = `Filed ${daysOpen} days ago. Still waiting.`;
+    else subline = "Just filed. Clock starts now.";
+  }
+
+  // Build stats text (avoid conditional JSX rendering which breaks Satori)
+  const daysText = daysOpen > 0 ? `${daysOpen} days` : "";
+  const affectedText = affected > 0 ? `${affected} people` : "";
+  const daysColor = daysOpen > 30 ? "#EF4444" : "#F1F0EB";
 
   return new ImageResponse(
     (
@@ -108,25 +115,14 @@ export async function GET(
           overflow: "hidden",
         }}
       >
-        {/* Grid pattern */}
-        <div
-          style={{
-            position: "absolute",
-            top: 0, left: 0, right: 0, bottom: 0,
-            backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0)",
-            backgroundSize: "40px 40px",
-            display: "flex",
-          }}
-        />
-
-        {/* Top accent */}
+        {/* Top accent bar */}
         <div style={{ width: "100%", height: 4, background: "linear-gradient(90deg, #E8652B, #ff8c5a, #E8652B)", display: "flex" }} />
 
-        {/* Content */}
+        {/* Content container */}
         <div style={{ display: "flex", flexDirection: "column", padding: "48px 64px", flex: 1, justifyContent: "space-between" }}>
 
-          {/* Header: Logo + Status */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          {/* Header: Logo + Status badge */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
               <div
                 style={{
@@ -148,22 +144,24 @@ export async function GET(
               </div>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 20px", borderRadius: 99, border: `2px solid ${sColor(status)}`, background: `${sColor(status)}15` }}>
-              <div style={{ width: 10, height: 10, borderRadius: 99, background: sColor(status), display: "flex" }} />
-              <span style={{ color: sColor(status), fontSize: 16, fontWeight: 700, letterSpacing: 2, display: "flex" }}>
-                {sText(status)}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 20px", borderRadius: 99, border: `2px solid ${statusColor}`, background: `${statusColor}15` }}>
+              <div style={{ width: 10, height: 10, borderRadius: 99, background: statusColor, display: "flex" }} />
+              <span style={{ color: statusColor, fontSize: 16, fontWeight: 700, letterSpacing: 2, display: "flex" }}>
+                {statusLabel}
               </span>
             </div>
           </div>
 
-          {/* Main */}
+          {/* Main content area */}
           <div style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "center", gap: 16 }}>
+            {/* Title */}
             <div style={{ color: "#F1F0EB", fontSize: displayTitle.length > 50 ? 36 : 44, fontWeight: 800, lineHeight: 1.15, maxWidth: 900, display: "flex" }}>
               {displayTitle}
             </div>
 
             {/* Stats row */}
             <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+              {/* Cost badge - always shown */}
               <div style={{ display: "flex", flexDirection: "column", padding: "14px 28px", borderRadius: 16, background: "rgba(232,101,43,0.12)", border: "2px solid rgba(232,101,43,0.3)" }}>
                 <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 700, letterSpacing: 2, display: "flex" }}>
                   EST. COST TO FIX
@@ -173,34 +171,33 @@ export async function GET(
                 </span>
               </div>
 
-              {daysOpen > 0 && (
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 700, letterSpacing: 2, display: "flex" }}>OPEN</span>
-                  <span style={{ color: daysOpen > 30 ? "#EF4444" : "#F1F0EB", fontSize: 30, fontWeight: 800, display: "flex" }}>{daysOpen} days</span>
-                </div>
-              )}
+              {/* Days open - shown when available */}
+              <div style={{ display: daysText ? "flex" : "none", flexDirection: "column" }}>
+                <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 700, letterSpacing: 2, display: "flex" }}>OPEN</span>
+                <span style={{ color: daysColor, fontSize: 30, fontWeight: 800, display: "flex" }}>{daysText}</span>
+              </div>
 
-              {affected > 0 && (
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 700, letterSpacing: 2, display: "flex" }}>AFFECTED</span>
-                  <span style={{ color: "#F1F0EB", fontSize: 30, fontWeight: 800, display: "flex" }}>{affected} people</span>
-                </div>
-              )}
+              {/* Affected count - shown when available */}
+              <div style={{ display: affectedText ? "flex" : "none", flexDirection: "column" }}>
+                <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 700, letterSpacing: 2, display: "flex" }}>AFFECTED</span>
+                <span style={{ color: "#F1F0EB", fontSize: 30, fontWeight: 800, display: "flex" }}>{affectedText}</span>
+              </div>
             </div>
 
+            {/* Subline */}
             <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 18, fontWeight: 500, display: "flex", marginTop: 4 }}>
               {subline}
             </div>
           </div>
 
-          {/* Bottom */}
+          {/* Bottom row */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 16, fontWeight: 500, display: "flex" }}>{neighborhood}</span>
             <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 14, fontWeight: 700, letterSpacing: 3, display: "flex" }}>FATCATSAPP.COM</span>
           </div>
         </div>
 
-        {/* Bottom accent */}
+        {/* Bottom accent bar */}
         <div style={{ width: "100%", height: 4, background: "linear-gradient(90deg, #E8652B, #ff8c5a, #E8652B)", display: "flex" }} />
       </div>
     ),
