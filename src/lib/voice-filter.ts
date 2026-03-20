@@ -169,9 +169,9 @@ export function filterStatus(status: string): string {
  * After:  "~$75 to fix"
  */
 export function filterCost(range: string, avg: number): string {
-  if (avg >= 10000) return `~${formatShortMoney(avg)} to fix`;
-  if (avg >= 1000) return `~${formatShortMoney(avg)} to fix`;
-  return `~${formatShortMoney(avg)} fix`;
+  if (avg >= 10000) return `Est. ~${formatShortMoney(avg)} to fix`;
+  if (avg >= 1000) return `Est. ~${formatShortMoney(avg)} to fix`;
+  return `Est. ~${formatShortMoney(avg)} to fix`;
 }
 
 function formatShortMoney(n: number): string {

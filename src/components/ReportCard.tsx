@@ -7,6 +7,7 @@ import { getPipelineIndex, FLAVOR_REACTIONS } from "@/lib/types";
 import { estimateRepairCost } from "@/lib/geo-intelligence";
 import { filterTitle, filterCost } from "@/lib/voice-filter";
 import { buildFeedXShareText, buildRedditTitle } from "@/lib/viral-share";
+import { getShareCounts } from "@/lib/social-proof";
 import StatusPill from "./StatusPill";
 import { PipelineSteps } from "./StatusPill";
 import FollowButton from "./FollowButton";
@@ -157,6 +158,7 @@ export default function ReportCard({ report }: { report: Report }) {
   const isVerified = pipelineIdx >= 4;
   const days = daysOpen(report.created_at);
   const costData = estimateRepairCost(report.category);
+  const shareCounts = getShareCounts(report.id, report.supporters_count);
 
   // FIX: Un-stamp toggle — allow removing stamp on second tap
   const handleStamp = useCallback((e: React.MouseEvent | React.TouchEvent) => {
@@ -254,12 +256,12 @@ export default function ReportCard({ report }: { report: Report }) {
     );
   }, [report, stampCount, days, costData]);
 
-  // Native share (iOS/Android) — short, OG card carries the visual
+  // Native share (iOS/Android) — Dharmaraj voice, OG card carries the visual
   const handleShare = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const url = `${window.location.origin}/expose/${report.id}`;
-    const costLead = costData.range ? `${costData.range} spent. ` : "";
+    const costLead = costData.range ? `Est. ${costData.range} to fix. ` : "";
     if (navigator.share) {
       navigator.share({
         title: `${filterTitle(report.title, report.category)} — ${report.neighborhood || "NYC"}`,
@@ -414,31 +416,34 @@ export default function ReportCard({ report }: { report: Report }) {
           {/* Follow bell */}
           <FollowButton kind="report" id={report.id} variant="compact" />
 
-          {/* Post on X — icon only */}
+          {/* Post on X — with share count */}
           <button
             onClick={handlePostX}
-            className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/[0.04] text-white/60 border border-white/[0.06] hover:bg-white/[0.08] hover:text-white transition-all active:scale-95"
+            className="flex items-center gap-1 h-8 px-2 rounded-lg bg-white/[0.04] text-white/60 border border-white/[0.06] hover:bg-white/[0.08] hover:text-white transition-all active:scale-95"
             title="Post on X"
           >
             <XIcon />
+            {shareCounts.x > 0 && <span className="text-[10px] text-white/40 font-medium">{shareCounts.x}</span>}
           </button>
 
-          {/* Post on Reddit — icon only */}
+          {/* Post on Reddit — with share count */}
           <button
             onClick={handlePostReddit}
-            className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/[0.04] text-[#FF4500]/70 border border-white/[0.06] hover:bg-white/[0.08] hover:text-[#FF4500] transition-all active:scale-95"
+            className="flex items-center gap-1 h-8 px-2 rounded-lg bg-white/[0.04] text-[#FF4500]/70 border border-white/[0.06] hover:bg-white/[0.08] hover:text-[#FF4500] transition-all active:scale-95"
             title="Post on Reddit"
           >
             <RedditIcon />
+            {shareCounts.reddit > 0 && <span className="text-[10px] text-[#FF4500]/50 font-medium">{shareCounts.reddit}</span>}
           </button>
 
-          {/* Share */}
+          {/* Share — with total count */}
           <button
             onClick={handleShare}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-semibold text-[var(--fc-orange)] hover:bg-[var(--fc-orange)]/10 transition-all active:scale-95 ml-auto"
           >
             <ShareIcon />
             <span>Share</span>
+            {shareCounts.total > 0 && <span className="text-[10px] text-[var(--fc-orange)]/60 font-medium">{shareCounts.total}</span>}
           </button>
         </div>
       </div>

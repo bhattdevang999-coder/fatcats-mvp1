@@ -48,15 +48,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const affected = report.supporters_count || 0;
   const isOpen = report.status !== "fixed" && report.status !== "verified";
 
-  // Cost-led title: "$800–$5K Spent, Pothole Still Open — Brooklyn"
+  // Cost-led title: "Est. ~$3K to fix — Pothole Still Open — Brooklyn"
   const title = isOpen
-    ? `${cost} Spent, ${report.title} — ${neighborhood}`
+    ? `Est. ${cost} to fix — ${report.title} — ${neighborhood}`
     : `${report.title} — ${neighborhood} | FatCats`;
 
-  // Rich description with outrage data points
+  // Dharmaraj voice description — cold, factual
   const affectedLine = affected > 0 ? `${affected} people affected. ` : "";
-  const daysLine = isOpen && daysOpen > 1 ? `Open ${daysOpen} days. ` : "";
-  const description = `${affectedLine}${daysLine}FatCats tracks what your city won't show you.`;
+  const daysLine = isOpen && daysOpen > 14
+    ? `${daysOpen} days. No one's moved. `
+    : isOpen && daysOpen > 1
+    ? `Filed ${daysOpen} days ago. Still waiting. `
+    : "";
+  const description = `${affectedLine}${daysLine}Point. Expose. Fix.`;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://fatcats-mvp1.vercel.app";
   const ogImageUrl = `${siteUrl}/api/og/${report.id}`;

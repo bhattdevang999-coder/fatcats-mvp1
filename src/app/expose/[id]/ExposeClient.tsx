@@ -18,6 +18,7 @@ import FollowButton from "@/components/FollowButton";
 import DeliveredTo from "@/components/DeliveredTo";
 import { hasSeenFollowNudge, markFollowNudgeSeen } from "@/lib/follows";
 import { ReactionBar, CommentSection, CommentCountBadge } from "@/components/CommunityEngagement";
+import { getCommunityProof } from "@/lib/social-proof";
 import Image from "next/image";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -522,7 +523,22 @@ export default function ExposeClient() {
           )}
 
           {/* ✨ "I'm Affected Too" prominent CTA — THE gateway drug */}
+          {(() => {
+            const proof = getCommunityProof(report.id, stampCount);
+            return (
           <div className="space-y-3">
+            {/* Safety proof bar — you're not alone */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+              <div className="flex -space-x-1.5">
+                {["#E8652B", "#ff8c5a", "#F59E0B", "#22C55E"].map((c, i) => (
+                  <div key={i} className="w-5 h-5 rounded-full border-2 border-[var(--fc-bg)]" style={{ background: c, opacity: 0.8 }} />
+                ))}
+              </div>
+              <span className="text-[11px] text-[var(--fc-muted)]">
+                <span className="text-white font-semibold">{proof.othersConfirmed} others</span> confirmed this issue
+              </span>
+            </div>
+
             <button
               onMouseDown={handlePressStart}
               onMouseUp={handlePressEnd}
@@ -540,7 +556,7 @@ export default function ExposeClient() {
                 {flavorEmoji || <PawIcon size={24} color={stamped ? "#E8652B" : "#ffffff"} />}
               </span>
               <span>{stamped ? `You + ${Math.max(0, stampCount - 1)} affected` : "I'm Affected Too"}</span>
-              {!stamped && <span className="text-white/70 text-[13px] font-normal">🐾</span>}
+              {!stamped && <span className="text-white/60 text-[13px] font-normal">+{stampCount}</span>}
             </button>
             <FlavorPopover visible={showFlavors} onSelect={handleFlavorSelect} onClose={() => setShowFlavors(false)} />
 
@@ -567,7 +583,20 @@ export default function ExposeClient() {
             {emailCaptured && (
               <p className="text-[12px] text-green-400 text-center animate-fade-in">✓ We&apos;ll notify you when this changes</p>
             )}
+
+            {/* Weekly activity proof — the ecosystem is alive */}
+            <div className="flex items-center justify-center gap-4 py-2">
+              <span className="text-[10px] text-[var(--fc-muted)]">
+                <span className="text-white/70 font-semibold">{proof.weeklyExposés}</span> exposés this week
+              </span>
+              <span className="text-white/10">·</span>
+              <span className="text-[10px] text-[var(--fc-muted)]">
+                <span className="text-green-400/80 font-semibold">{proof.fixedThisMonth}</span> fixed this month
+              </span>
+            </div>
           </div>
+            );
+          })()}
 
           {/* Cost Intelligence card */}
           {(() => {

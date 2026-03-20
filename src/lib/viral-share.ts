@@ -161,7 +161,7 @@ export function buildXShareText(ctx: ShareContext): { mainTweet: string; replyTw
   const daysLine = ctx.daysOpen > 7 ? `${ctx.daysOpen} days. No fix.` : "";
 
   const mainTweet = [
-    `${costLead} of taxpayer money. ${ctx.title} in ${ctx.neighborhood}.`,
+    `Est. ~${costLead} to fix. ${ctx.title} in ${ctx.neighborhood}.`,
     "",
     `${daysLine} ${affectedLine}`.trim(),
     deliveredLine,
@@ -183,7 +183,7 @@ export function buildXShareText(ctx: ShareContext): { mainTweet: string; replyTw
  * Text just needs to be forwarding-friendly: one gut-punch line + link.
  */
 export function buildWhatsAppShareText(ctx: ShareContext): string {
-  return `${ctx.costRange} spent and this still isn't fixed. ${ctx.neighborhood}.\n${ctx.url}`;
+  return `Est. ${ctx.costRange} to fix and no one's moved. ${ctx.title} — ${ctx.neighborhood}.\n${ctx.url}`;
 }
 
 /**
@@ -191,8 +191,8 @@ export function buildWhatsAppShareText(ctx: ShareContext): string {
  * Format: cost + problem + location + time + rhetorical shock
  */
 export function buildRedditTitle(ctx: ShareContext): string {
-  const costLead = ctx.costRange ? `${ctx.costRange} spent on ` : "";
-  const daysStr = ctx.daysOpen > 1 ? ` — open ${ctx.daysOpen} days` : "";
+  const costLead = ctx.costRange ? `Est. ${ctx.costRange} to fix — ` : "";
+  const daysStr = ctx.daysOpen > 1 ? ` — open ${ctx.daysOpen} days, no one's moved` : "";
   return `${costLead}${ctx.title.toLowerCase()} in ${ctx.neighborhood}${daysStr}. Here's the receipt.`;
 }
 
@@ -201,7 +201,7 @@ export function buildRedditTitle(ctx: ShareContext): string {
  * Short enough that people don't edit it before forwarding.
  */
 export function buildNativeShareText(ctx: ShareContext): { title: string; text: string } {
-  const costLead = ctx.costRange ? `${ctx.costRange} spent. ` : "";
+  const costLead = ctx.costRange ? `Est. ${ctx.costRange} to fix. ` : "";
   return {
     title: `${ctx.title} — ${ctx.neighborhood}`,
     text: `${costLead}${ctx.title} — ${ctx.neighborhood}. Still not fixed. Point. Expose. Fix.`,
@@ -221,8 +221,8 @@ export function buildFeedXShareText(ctx: ShareContext): string {
     : `$${ctx.costAvg}`;
 
   return [
-    `${costLead} of taxpayer money on ${ctx.title.toLowerCase()} in ${ctx.neighborhood || "NYC"}.`,
-    ctx.daysOpen > 7 ? `Open ${ctx.daysOpen} days.` : "",
+    `Est. ~${costLead} to fix. ${ctx.title.toLowerCase()} in ${ctx.neighborhood || "NYC"}.`,
+    ctx.daysOpen > 7 ? `Open ${ctx.daysOpen} days. No one's moved.` : "",
     "",
     `${handles.slice(0, 2).join(" ")} — who signed off on this?`,
     "",

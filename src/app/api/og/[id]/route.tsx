@@ -16,8 +16,12 @@ const CATEGORY_COSTS: Record<string, { range: string; avg: number }> = {
   other: { range: "$500–$5,000", avg: 2000 },
 };
 
-function getCostRange(cat: string): string {
-  return (CATEGORY_COSTS[cat] || CATEGORY_COSTS.other).range;
+function getEstCost(cat: string): string {
+  const cost = (CATEGORY_COSTS[cat] || CATEGORY_COSTS.other);
+  const avg = cost.avg;
+  if (avg >= 1_000_000) return `$${(avg / 1_000_000).toFixed(1)}M`;
+  if (avg >= 1_000) return `$${Math.round(avg / 1_000)}K`;
+  return `$${avg}`;
 }
 
 function statusColor(status: string): string {
@@ -66,13 +70,23 @@ export async function GET(
   const category = report?.category ?? "other";
   const neighborhood = report?.neighborhood ?? "New York City";
   const affected = report?.supporters_count ?? 0;
-  const costRange = getCostRange(category);
+  const estCost = getEstCost(category);
   const daysOpen = report?.created_at
     ? Math.max(1, Math.floor((Date.now() - new Date(report.created_at).getTime()) / 86400000))
     : 0;
 
   // Truncate title for display
   const displayTitle = title.length > 70 ? title.slice(0, 67) + "..." : title;
+
+  // Dharmaraj voice: cold subline under the cost
+  const isOpen = status !== "fixed" && status !== "verified";
+  const subline = isOpen
+    ? daysOpen > 14
+      ? `${daysOpen} days. No one's moved.`
+      : daysOpen > 1
+      ? `Filed ${daysOpen} days ago. Still waiting.`
+      : "Just filed. Clock starts now."
+    : "Resolved.";
 
   return new ImageResponse(
     (
@@ -127,23 +141,24 @@ export async function GET(
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              marginBottom: 24,
+              marginBottom: 16,
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              {/* Cat icon (simple geometric) */}
+              {/* Cat icon — the glowing omnipresent logo */}
               <div
                 style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  background: "#E8652B",
+                  width: 48,
+                  height: 48,
+                  borderRadius: 12,
+                  background: "linear-gradient(135deg, #E8652B 0%, #ff8c5a 100%)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 22,
+                  fontSize: 24,
                   fontWeight: 900,
                   color: "white",
+                  boxShadow: "0 0 24px rgba(232, 101, 43, 0.4), 0 0 60px rgba(232, 101, 43, 0.15)",
                 }}
               >
                 FC
@@ -152,7 +167,7 @@ export async function GET(
                 <div
                   style={{
                     color: "#E8652B",
-                    fontSize: 22,
+                    fontSize: 24,
                     fontWeight: 800,
                     letterSpacing: 1,
                     display: "flex",
@@ -164,6 +179,8 @@ export async function GET(
                   style={{
                     color: "rgba(255,255,255,0.35)",
                     fontSize: 13,
+                    letterSpacing: 3,
+                    textTransform: "uppercase",
                     display: "flex",
                   }}
                 >
@@ -208,7 +225,7 @@ export async function GET(
           </div>
 
           {/* Main content */}
-          <div style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "center", gap: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "center", gap: 16 }}>
             {/* Title */}
             <div
               style={{
@@ -223,40 +240,40 @@ export async function GET(
               {displayTitle}
             </div>
 
-            {/* Stats row */}
+            {/* The cost hero — EST. prefix, massive */}
             <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
               {/* Cost estimate - THE LEAD STAT */}
               <div
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  padding: "12px 24px",
+                  padding: "14px 28px",
                   borderRadius: 16,
                   background: "rgba(232, 101, 43, 0.12)",
-                  border: "1px solid rgba(232, 101, 43, 0.25)",
+                  border: "2px solid rgba(232, 101, 43, 0.3)",
                 }}
               >
                 <span
                   style={{
                     color: "rgba(255,255,255,0.5)",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    letterSpacing: 1,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: 2,
                     textTransform: "uppercase",
                     display: "flex",
                   }}
                 >
-                  Est. Cost
+                  Est. Cost to Fix
                 </span>
                 <span
                   style={{
                     color: "#E8652B",
-                    fontSize: 30,
-                    fontWeight: 800,
+                    fontSize: 36,
+                    fontWeight: 900,
                     display: "flex",
                   }}
                 >
-                  {costRange}
+                  ~{estCost}
                 </span>
               </div>
 
@@ -266,9 +283,9 @@ export async function GET(
                   <span
                     style={{
                       color: "rgba(255,255,255,0.5)",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      letterSpacing: 1,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: 2,
                       textTransform: "uppercase",
                       display: "flex",
                     }}
@@ -294,9 +311,9 @@ export async function GET(
                   <span
                     style={{
                       color: "rgba(255,255,255,0.5)",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      letterSpacing: 1,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: 2,
                       textTransform: "uppercase",
                       display: "flex",
                     }}
@@ -315,6 +332,20 @@ export async function GET(
                   </span>
                 </div>
               )}
+            </div>
+
+            {/* Dharmaraj subline — cold, factual */}
+            <div
+              style={{
+                color: "rgba(255,255,255,0.35)",
+                fontSize: 18,
+                fontWeight: 500,
+                fontStyle: "italic",
+                display: "flex",
+                marginTop: 4,
+              }}
+            >
+              {subline}
             </div>
           </div>
 
@@ -336,10 +367,11 @@ export async function GET(
             </div>
             <span
               style={{
-                color: "rgba(255,255,255,0.2)",
+                color: "rgba(255,255,255,0.25)",
                 fontSize: 14,
-                fontWeight: 600,
-                letterSpacing: 2,
+                fontWeight: 700,
+                letterSpacing: 3,
+                textTransform: "uppercase",
                 display: "flex",
               }}
             >

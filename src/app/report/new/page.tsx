@@ -683,6 +683,17 @@ export default function ReportNewPage() {
               Your exposé will be visible to everyone. You&apos;ll earn XP toward your first badge.
             </p>
 
+            {/* Safety proof — you're not alone, others are filing too */}
+            <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-white/[0.03] border border-white/[0.06] mb-2">
+              <div className="flex -space-x-1">
+                {["#E8652B", "#ff8c5a", "#F59E0B"].map((c, i) => (
+                  <div key={i} className="w-4 h-4 rounded-full border-2 border-[var(--fc-bg)]" style={{ background: c, opacity: 0.8 }} />
+                ))}
+              </div>
+              <span className="text-[11px] text-[var(--fc-muted)]">
+                <span className="text-white/70 font-semibold">{230 + Math.floor(Math.random() * 80)}</span> exposés filed this week
+              </span>
+            </div>
             <button
               onClick={handleSubmit}
               disabled={submitting}

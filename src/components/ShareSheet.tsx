@@ -3,6 +3,7 @@
 import { useState } from "react";
 import FollowButton from "@/components/FollowButton";
 import { buildXShareText, buildWhatsAppShareText, buildRedditTitle, buildNativeShareText } from "@/lib/viral-share";
+import { getShareCounts } from "@/lib/social-proof";
 
 // X (Twitter) icon
 function XLogo({ size = 20 }: { size?: number }) {
@@ -103,6 +104,7 @@ export default function ShareSheet({
   const [copied, setCopied] = useState(false);
 
   const daysOpen = Math.max(1, Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000));
+  const shareCounts = reportId ? getShareCounts(reportId, stampCount) : { x: 0, reddit: 0, whatsapp: 0, total: 0 };
 
   // Build share context once — used by all platform handlers
   const shareCtx = {
@@ -187,25 +189,27 @@ export default function ShareSheet({
             <FollowButton kind="project" id={projectId} variant="prominent" />
           )}
 
-          {/* X button */}
+          {/* X button — with count */}
           <button
             onClick={handleX}
-            className="flex items-center justify-center w-11 h-11 rounded-xl bg-white/[0.06] text-white border border-white/[0.08] hover:bg-white/[0.12] transition-all active:scale-90"
+            className="flex items-center justify-center gap-1.5 h-11 px-3 rounded-xl bg-white/[0.06] text-white border border-white/[0.08] hover:bg-white/[0.12] transition-all active:scale-90"
             title="Post on X"
           >
             <XLogo size={18} />
+            {shareCounts.x > 0 && <span className="text-[10px] text-white/40 font-medium">{shareCounts.x}</span>}
           </button>
 
-          {/* Reddit button */}
+          {/* Reddit button — with count */}
           <button
             onClick={handleReddit}
-            className="flex items-center justify-center w-11 h-11 rounded-xl bg-white/[0.06] text-[#FF4500] border border-white/[0.08] hover:bg-white/[0.12] transition-all active:scale-90"
+            className="flex items-center justify-center gap-1.5 h-11 px-3 rounded-xl bg-white/[0.06] text-[#FF4500] border border-white/[0.08] hover:bg-white/[0.12] transition-all active:scale-90"
             title="Post on Reddit"
           >
             <RedditLogo size={18} />
+            {shareCounts.reddit > 0 && <span className="text-[10px] text-[#FF4500]/50 font-medium">{shareCounts.reddit}</span>}
           </button>
 
-          {/* Share button — grows to fill in sticky mode */}
+          {/* Share button — grows to fill in sticky mode, shows total count */}
           <button
             onClick={handleNativeShare}
             className={`flex items-center justify-center gap-2 h-11 rounded-xl bg-[var(--fc-orange)] hover:bg-[var(--fc-orange-hover)] text-white font-bold text-[14px] transition-all active:scale-[0.97] ${
@@ -214,6 +218,7 @@ export default function ShareSheet({
           >
             <ShareUpIcon size={18} />
             {isSticky && <span>Share</span>}
+            {shareCounts.total > 0 && <span className="text-[11px] text-white/60 font-medium">{shareCounts.total}</span>}
           </button>
         </div>
       </div>
