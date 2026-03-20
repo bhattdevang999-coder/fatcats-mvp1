@@ -62,7 +62,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     : "";
   const description = `${affectedLine}${daysLine}Point. Expose. Fix.`;
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://fatcats-mvp1.vercel.app";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://app.fatcatsapp.com";
   const ogImageUrl = `${siteUrl}/api/og/${report.id}`;
   const pageUrl = `${siteUrl}/expose/${report.id}`;
 
