@@ -13,7 +13,7 @@ export default function RankUpModal({ rank, onClose, onShare }: RankUpModalProps
   if (!config) return null;
 
   const handleShare = () => {
-    const text = `I just became a ${config.label} ${config.icon} on FatCats!\n\n"${config.description}"\n\nI'm watching where the money goes. Are you?\n\nfatcatsapp.com via @FatCatsApp #FatCatsNYC`;
+    const text = `${config.icon} ${config.label}\n\n"${config.description}"\n\nfatcatsapp.com via @FatCatsApp #FatCatsNYC #PointExposeFix`;
     if (typeof navigator !== "undefined" && navigator.share) {
       navigator.share({ title: `FatCats — ${config.label}`, text }).catch(() => {});
     } else if (typeof navigator !== "undefined") {
@@ -35,9 +35,9 @@ export default function RankUpModal({ rank, onClose, onShare }: RankUpModalProps
             background: "linear-gradient(135deg, rgba(255,107,53,0.08) 0%, rgba(30,41,59,0.95) 50%, rgba(255,107,53,0.04) 100%)",
           }}
         >
-          {/* Celebration header */}
+          {/* Cold header */}
           <p className="text-[13px] font-bold text-[var(--fc-orange)] uppercase tracking-widest mb-4">
-            🎉 RANK UP!
+            New clearance.
           </p>
 
           {/* Rank icon */}
@@ -51,7 +51,7 @@ export default function RankUpModal({ rank, onClose, onShare }: RankUpModalProps
             &ldquo;{config.description}&rdquo;
           </p>
           <p className="text-[12px] text-[var(--fc-muted)] mb-6">
-            Keep digging. The city needs you.
+            Keep going. The record is watching.
           </p>
 
           {/* Actions */}
@@ -60,13 +60,13 @@ export default function RankUpModal({ rank, onClose, onShare }: RankUpModalProps
               onClick={handleShare}
               className="flex-1 h-11 rounded-xl bg-[var(--fc-orange)] hover:bg-[var(--fc-orange-hover)] text-white font-bold text-[13px] transition-colors active:scale-95"
             >
-              Share Achievement
+              Spread this
             </button>
             <button
               onClick={onClose}
               className="flex-1 h-11 rounded-xl bg-white/[0.06] text-white/70 font-semibold text-[13px] border border-white/[0.08] hover:bg-white/[0.1] transition-colors active:scale-95"
             >
-              Nice
+              Noted
             </button>
           </div>
         </div>

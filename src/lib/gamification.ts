@@ -37,15 +37,15 @@ export interface RankConfig {
 }
 
 export const RANK_CONFIG: Record<CivicRank, RankConfig> = {
-  kitten: { label: "Kitten", icon: "🐱", description: "Welcome to FatCats", requirement: "Sign up" },
-  street_cat: { label: "Street Cat", icon: "😼", description: "Filed your first exposé", requirement: "1 exposé" },
-  alley_cat: { label: "Alley Cat", icon: "🐾", description: "Getting comfortable", requirement: "5 exposés" },
-  night_owl: { label: "Night Owl", icon: "🦉", description: "First scope creep discovery", requirement: "1 discovery" },
-  digger: { label: "Digger", icon: "⛏️", description: "Digging into the data", requirement: "10 budget views" },
-  watchdog: { label: "Watchdog", icon: "🐕", description: "Eyes everywhere", requirement: "10 exposés + 5 discoveries" },
-  investigator: { label: "Investigator", icon: "🔍", description: "Following the money", requirement: "25 exposés + 10 shares" },
-  muckraker: { label: "Muckraker", icon: "📰", description: "Exposing the system", requirement: "50 exposés + 5 contexts" },
-  founding_watchdog: { label: "Founding Watchdog", icon: "👑", description: "Here from the beginning", requirement: "Pre-launch user" },
+  kitten: { label: "Witness", icon: "👁️", description: "You saw something.", requirement: "Sign up" },
+  street_cat: { label: "Recorder", icon: "📸", description: "First receipt filed.", requirement: "1 exposé" },
+  alley_cat: { label: "Tracker", icon: "🔦", description: "5 receipts. They're noticing.", requirement: "5 exposés" },
+  night_owl: { label: "Auditor", icon: "🧾", description: "Found where the money went.", requirement: "1 discovery" },
+  digger: { label: "Digger", icon: "⛏️", description: "10 budgets opened. No one does this.", requirement: "10 budget views" },
+  watchdog: { label: "Watchdog", icon: "🐕", description: "They know your device.", requirement: "10 exposés + 5 discoveries" },
+  investigator: { label: "Investigator", icon: "🔍", description: "Following the money.", requirement: "25 exposés + 10 shares" },
+  muckraker: { label: "Muckraker", icon: "📰", description: "The system sees you seeing it.", requirement: "50 exposés + 5 contexts" },
+  founding_watchdog: { label: "Founding Watchdog", icon: "👑", description: "Here before anyone.", requirement: "Pre-launch user" },
 };
 
 const RANK_ORDER: CivicRank[] = [

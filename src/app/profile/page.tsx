@@ -48,7 +48,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [displayName, setDisplayName] = useState("Founding Watchdog");
-  const [bio, setBio] = useState("Keeping the city accountable");
+  const [bio, setBio] = useState("The receipts don't lie.");
   const [streak, setStreak] = useState(1);
   const [showShareToast, setShowShareToast] = useState(false);
   const impactCardRef = useRef<HTMLDivElement>(null);
@@ -99,7 +99,7 @@ export default function ProfilePage() {
   const unlockedCount = badges.filter((b) => b.unlocked).length;
 
   const handleShare = () => {
-    const text = `I'm holding my city accountable on FatCats.\n\n🔥 ${streak}-day streak\n📸 ${reports.length} exposés filed\n👁️ ${totalWatchers} people watching\n⭐ ${civic.score} civic score (${civic.level})\n\nJoin me → fatcatsapp.com\nvia @FatCatsApp #FatCatsNYC #PointExposeFix`;
+    const text = `📸 ${reports.length} exposés. 👁️ ${totalWatchers} watching. ${fixedCount > 0 ? `${fixedCount} fixed. ` : ""}\n\nThe receipts are public.\n\nfatcatsapp.com via @FatCatsApp #FatCatsNYC #PointExposeFix`;
     if (navigator.share) {
       navigator.share({ title: "My FatCats Impact", text, url: "https://fatcatsapp.com" }).catch(() => {});
     } else {
@@ -246,7 +246,7 @@ export default function ProfilePage() {
                 <span className="text-[20px]">💰</span>
                 <div>
                   <p className="text-[14px] text-white leading-snug">
-                    You&apos;ve helped uncover <span className="font-black text-[var(--fc-orange)]">{formatMoney(spendingUncovered)}</span> in questionable government spending near your reports
+                    <span className="font-black text-[var(--fc-orange)]">{formatMoney(spendingUncovered)}</span> in questionable spending surfaced near your reports
                   </p>
                 </div>
               </div>
@@ -270,7 +270,7 @@ export default function ProfilePage() {
                   </div>
                   <p className="text-[10px] text-[var(--fc-muted)]">
                     {userStats.budgetViewsCount > 0 ? `${userStats.budgetViewsCount} projects investigated` : "Start investigating projects"}
-                    {userStats.sharesCount > 0 ? ` · ${userStats.sharesCount} times you spread the word` : ""}
+                    {userStats.sharesCount > 0 ? ` · ${userStats.sharesCount} shares` : ""}
                   </p>
                 </div>
               )}
@@ -384,7 +384,7 @@ export default function ProfilePage() {
                   <polyline points="16 6 12 2 8 6" />
                   <line x1="12" y1="2" x2="12" y2="15" />
                 </svg>
-                Share your civic footprint
+                Share the record
               </button>
             </div>
           </div>
@@ -398,7 +398,7 @@ export default function ProfilePage() {
               Day {streak} Streak
             </p>
             <p className="text-[11px] text-[var(--fc-muted)]">
-              Browsing, stamping, or verifying all count
+              Every action is logged.
             </p>
           </div>
           <div className="flex gap-0.5">
@@ -443,8 +443,8 @@ export default function ProfilePage() {
           <div className="flex items-center gap-3">
             <div className="text-2xl">📣</div>
             <div className="flex-1">
-              <p className="text-[13px] font-semibold text-white">Recruit a watchdog</p>
-              <p className="text-[11px] text-[var(--fc-muted)]">More watchdogs = more accountability. Spread the word.</p>
+              <p className="text-[13px] font-semibold text-white">More eyes on this.</p>
+              <p className="text-[11px] text-[var(--fc-muted)]">Every pair of eyes makes it harder to look away.</p>
             </div>
             <button
               onClick={handleShare}
@@ -518,7 +518,7 @@ export default function ProfilePage() {
 
         {/* Footer */}
         <p className="text-[11px] text-[var(--fc-muted)] text-center mt-8 pb-2">
-          Every exposé matters. You&apos;re early to something that changes everything.
+          The record is permanent.
         </p>
       </div>
 

@@ -443,7 +443,7 @@ export default function ProjectDetailPage() {
                 <div className="flex items-center gap-2 mb-3">
                   <IntelLogo size={20} />
                   <h3 className="text-sm font-semibold text-white">Why It Happened</h3>
-                  <span className="beta-badge">Beta</span>
+                  
                 </div>
 
                 {whyItHappened.publicRecords.length > 0 && (
@@ -620,7 +620,7 @@ export default function ProjectDetailPage() {
               <div className="flex items-center justify-center gap-1.5">
                 <IntelLogo size={14} />
                 <p className="text-[10px] text-[var(--fc-muted)]">Powered by FatCats Intel</p>
-                <span className="beta-badge animate-beta-pulse">Beta</span>
+                
               </div>
               <p className="text-[9px] text-[var(--fc-muted)]/60 max-w-xs mx-auto leading-relaxed">
                 Data sourced from{" "}

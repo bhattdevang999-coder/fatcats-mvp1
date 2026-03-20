@@ -340,13 +340,9 @@ export default function ReportCard({ report }: { report: Report }) {
           )}
         </div>
 
-        {/* Pipeline progress bar */}
+        {/* Pipeline progress bar — no labels, just the bar */}
         <div className="px-3.5 pt-2.5">
           <PipelineSteps status={report.status} />
-          <div className="flex justify-between mt-1 mb-0.5">
-            <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Reported</span>
-            <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Confirmed</span>
-          </div>
         </div>
 
         {/* Content */}
@@ -360,8 +356,6 @@ export default function ReportCard({ report }: { report: Report }) {
             )}
             <span className="opacity-40">·</span>
             <span>{timeAgo(report.created_at)}</span>
-            <span className="opacity-40">·</span>
-            <span>{report.source === "citizen" ? "Resident" : "311"}</span>
           </div>
           {/* Cost preview chip — human-readable, no Beta label */}
           <div className="flex items-center gap-2 mt-2">

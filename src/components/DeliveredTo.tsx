@@ -48,6 +48,7 @@ function CheckCircleIcon({ size = 14 }: { size?: number }) {
 
 export default function DeliveredTo({
   officials,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   exposéUrl,
   exposéTitle,
   neighborhood,

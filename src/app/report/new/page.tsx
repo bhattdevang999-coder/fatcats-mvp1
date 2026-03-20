@@ -362,7 +362,7 @@ export default function ReportNewPage() {
                   <p className="text-[13px] text-white font-medium">Analyzing photo...</p>
                   <p className="text-[11px] text-[var(--fc-muted)]">FatCats Intel is identifying the issue</p>
                 </div>
-                <span className="beta-badge">Beta</span>
+                
               </div>
             )}
 
@@ -371,7 +371,7 @@ export default function ReportNewPage() {
                 <div className="flex items-center gap-2">
                   <IntelLogo size={20} />
                   <span className="text-[13px] font-semibold text-[var(--fc-orange)]">FatCats Intel</span>
-                  <span className="beta-badge">Beta</span>
+                  
                   <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full border font-semibold ${severityColor(aiResult.severity)}`}>
                     {aiResult.severity.toUpperCase()}
                   </span>
@@ -447,7 +447,7 @@ export default function ReportNewPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-[12px] text-[var(--fc-muted)]">Est. repair cost</span>
-                    <span className="beta-badge">Beta</span>
+                    
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-[14px] text-white font-semibold">{costInfo.range}</span>
@@ -510,7 +510,7 @@ export default function ReportNewPage() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                 <span className="text-[11px] text-[var(--fc-muted)] uppercase tracking-wider font-semibold">Intelligence</span>
-                <span className="beta-badge">Beta</span>
+                
               </div>
                 {geoLoading ? (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
@@ -637,7 +637,7 @@ export default function ReportNewPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-[var(--fc-muted)] uppercase tracking-wider">Est. repair cost</span>
-                    <span className="beta-badge">Beta</span>
+                    
                   </div>
                   <p className="text-[13px] text-white/70">{costInfo.range} {costInfo.unit}</p>
                 </div>

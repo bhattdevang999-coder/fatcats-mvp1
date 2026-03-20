@@ -34,7 +34,7 @@ export function IntelLogo({ size = 24 }: { size?: number }) {
 
 // Inline badge: [glowing logo] FatCats Intel [Beta]
 export function FatCatsIntelBadge({
-  showBeta = true,
+  showBeta = false,
   size = "sm",
 }: {
   showBeta?: boolean;
@@ -57,7 +57,7 @@ export function FatCatsIntelBadge({
 // Header row: used as a section header in cards
 export function IntelHeader({
   title,
-  showBeta = true,
+  showBeta = false,
 }: {
   title?: string;
   showBeta?: boolean;

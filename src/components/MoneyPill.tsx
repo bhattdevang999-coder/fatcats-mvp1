@@ -36,7 +36,7 @@ export default function MoneyPill({
       </p>
       {/* LINE 3: The hook */}
       <p className="text-[12px] text-[var(--fc-orange)] font-semibold mt-1 group-hover:underline">
-        Where&apos;s this money going? →
+        Follow the money.
       </p>
     </Link>
   );
