@@ -6,6 +6,8 @@ import ReportCard from "@/components/ReportCard";
 import AnimatedCard from "@/components/AnimatedCard";
 import { FeedSkeleton } from "@/components/Skeletons";
 import SinceYouLeftBanner from "@/components/SinceYouLeft";
+import StreakLossBanner from "@/components/StreakLossBanner";
+import { getStreak } from "@/lib/engagement";
 import { listReports, listNearbyReports } from "@/lib/reports";
 import { getPipelineIndex } from "@/lib/types";
 import { clusterReports } from "@/lib/feed-clustering";
@@ -205,6 +207,17 @@ export default function FeedPage() {
   const [nearbyProject, setNearbyProject] = useState<{
     fms_id: string; project_name: string; original_budget: number; total_budget: number; budget_delta_pct: number;
   } | null>(null);
+  const [streakBroke, setStreakBroke] = useState(false);
+  const [lostStreak, setLostStreak] = useState(0);
+
+  // Check streak on mount
+  useEffect(() => {
+    const s = getStreak();
+    if (s.justBroke) {
+      setStreakBroke(true);
+      setLostStreak(s.previousStreak);
+    }
+  }, []);
 
   const loadReports = useCallback(async () => {
     const data = await listReports({ limit: 200 });
@@ -423,6 +436,9 @@ export default function FeedPage() {
             <div className="absolute right-0 top-0 bottom-1 w-8 bg-gradient-to-l from-[var(--fc-bg)] to-transparent pointer-events-none" />
           )}
         </div>
+
+        {/* Streak loss banner — cold, no encouragement */}
+        {!loading && streakBroke && <StreakLossBanner previousStreak={lostStreak} />}
 
         {/* Since You Left banner */}
         {!loading && <SinceYouLeftBanner reports={reports} />}

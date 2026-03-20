@@ -73,10 +73,10 @@ export default function NotificationCenter({ open, onClose }: NotificationCenter
             <div className="overflow-y-auto max-h-[60vh] p-2 space-y-1">
               {notifications.length === 0 ? (
                 <div className="text-center py-10">
-                  <p className="text-2xl mb-2">🐱</p>
-                  <p className="text-[13px] text-[var(--fc-muted)]">No updates yet</p>
+                  <p className="text-2xl mb-2">👁️</p>
+                  <p className="text-[13px] text-[var(--fc-muted)]">Nothing yet.</p>
                   <p className="text-[11px] text-[var(--fc-muted)] mt-1">
-                    We&apos;ll notify you about spending changes near your reports
+                    Activity near your reports will show up here.
                   </p>
                 </div>
               ) : (

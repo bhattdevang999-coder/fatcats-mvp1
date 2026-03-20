@@ -27,10 +27,12 @@ export interface StreakData {
   current: number;
   lastDate: string;
   isNewDay: boolean; // true if this is the first visit today
+  justBroke: boolean; // true if the streak JUST broke on this visit
+  previousStreak: number; // what the streak was before it broke (0 if didn't break)
 }
 
 export function getStreak(): StreakData {
-  if (typeof window === "undefined") return { current: 1, lastDate: getToday(), isNewDay: false };
+  if (typeof window === "undefined") return { current: 1, lastDate: getToday(), isNewDay: false, justBroke: false, previousStreak: 0 };
 
   const stored = localStorage.getItem(KEYS.STREAK);
   const storedDate = localStorage.getItem(KEYS.STREAK_DATE);
@@ -41,14 +43,14 @@ export function getStreak(): StreakData {
   if (!stored || !storedDate) {
     localStorage.setItem(KEYS.STREAK, "1");
     localStorage.setItem(KEYS.STREAK_DATE, today);
-    return { current: 1, lastDate: today, isNewDay: true };
+    return { current: 1, lastDate: today, isNewDay: true, justBroke: false, previousStreak: 0 };
   }
 
   const streak = parseInt(stored, 10) || 1;
 
   if (storedDate === today) {
     // Already visited today
-    return { current: streak, lastDate: today, isNewDay: false };
+    return { current: streak, lastDate: today, isNewDay: false, justBroke: false, previousStreak: 0 };
   }
 
   if (storedDate === yesterday) {
@@ -56,13 +58,23 @@ export function getStreak(): StreakData {
     const newStreak = streak + 1;
     localStorage.setItem(KEYS.STREAK, String(newStreak));
     localStorage.setItem(KEYS.STREAK_DATE, today);
-    return { current: newStreak, lastDate: today, isNewDay: true };
+    localStorage.removeItem("fc_streak_broke_shown");
+    return { current: newStreak, lastDate: today, isNewDay: true, justBroke: false, previousStreak: 0 };
   }
 
   // Streak broken — reset to 1
+  const lostStreak = streak;
   localStorage.setItem(KEYS.STREAK, "1");
   localStorage.setItem(KEYS.STREAK_DATE, today);
-  return { current: 1, lastDate: today, isNewDay: true };
+
+  // Only show "just broke" once per break event
+  const alreadyShown = localStorage.getItem("fc_streak_broke_shown");
+  if (!alreadyShown && lostStreak > 1) {
+    localStorage.setItem("fc_streak_broke_shown", "1");
+    return { current: 1, lastDate: today, isNewDay: true, justBroke: true, previousStreak: lostStreak };
+  }
+
+  return { current: 1, lastDate: today, isNewDay: true, justBroke: false, previousStreak: 0 };
 }
 
 // ── Last Visit / "Since You Left" ───────────────────────────────────────

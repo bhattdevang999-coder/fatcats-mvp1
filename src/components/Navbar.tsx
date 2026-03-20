@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { registerServiceWorker, requestPushPermission } from "@/lib/notifications";
 import { getUnreadCount, generateSessionNotification } from "@/lib/notifications";
+import { generateActivitySinceLastVisit } from "@/lib/activity-engine";
 import NotificationCenter from "@/components/NotificationCenter";
 import { getStreak } from "@/lib/engagement";
 
@@ -23,6 +24,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [streak, setStreak] = useState(0);
+  const [streakBroke, setStreakBroke] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -40,7 +42,12 @@ export default function Navbar() {
     }
     const s = getStreak();
     setStreak(s.current);
-    // Generate session notification + update unread count
+    if (s.justBroke) {
+      setStreakBroke(true);
+    }
+    // Generate activity notifications (things that happened while you were gone)
+    generateActivitySinceLastVisit();
+    // Also generate a session "Did You Know" fact
     generateSessionNotification();
     setUnreadCount(getUnreadCount());
   }, []);
@@ -89,8 +96,18 @@ export default function Navbar() {
           </Link>
 
           <div className="flex items-center gap-1.5">
-            {/* Watchdog Streak pill */}
-            {streak > 0 && (
+            {/* Watchdog Streak pill — cold when broken */}
+            {streakBroke ? (
+              <Link
+                href="/profile"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 hover:bg-red-500/15 transition-colors active:scale-95"
+              >
+                <span className="text-[12px]">💀</span>
+                <span className="text-[12px] font-bold text-red-400">
+                  0
+                </span>
+              </Link>
+            ) : streak > 0 ? (
               <Link
                 href="/profile"
                 className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/15 hover:bg-amber-500/15 transition-colors active:scale-95"
@@ -100,7 +117,7 @@ export default function Navbar() {
                   {streak}
                 </span>
               </Link>
-            )}
+            ) : null}
 
             <button
               onClick={handleBell}
@@ -108,7 +125,7 @@ export default function Navbar() {
             >
               <BellIcon enabled={notifEnabled} />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-[var(--fc-orange)] text-white text-[9px] font-bold px-1">
+                <span className="absolute top-1 right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold px-1 animate-pulse">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}

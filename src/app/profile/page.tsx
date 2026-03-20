@@ -391,21 +391,21 @@ export default function ProfilePage() {
         </div>
 
         {/* Watchdog Streak — detailed view */}
-        <div className="glass-card p-4 mb-5 flex items-center gap-4 border border-amber-500/10">
-          <div className="text-3xl">🔥</div>
+        <div className={`glass-card p-4 mb-5 flex items-center gap-4 border ${streak <= 1 ? "border-red-500/15" : "border-amber-500/10"}`}>
+          <div className="text-3xl">{streak <= 1 ? "💀" : "🔥"}</div>
           <div className="flex-1">
-            <p className="text-[14px] font-bold text-white">
-              Day {streak} Streak
+            <p className={`text-[14px] font-bold ${streak <= 1 ? "text-red-400" : "text-white"}`}>
+              {streak <= 1 ? "Day 0." : `Day ${streak} Streak`}
             </p>
             <p className="text-[11px] text-[var(--fc-muted)]">
-              Every action is logged.
+              {streak <= 1 ? "Don\u2019t let it happen again." : "Every action is logged."}
             </p>
           </div>
           <div className="flex gap-0.5">
             {[1, 2, 3, 4, 5, 6, 7].map((d) => (
               <div
                 key={d}
-                className={`w-3 h-3 rounded-sm ${d <= (streak % 7 || 7) ? "bg-amber-400" : "bg-white/10"}`}
+                className={`w-3 h-3 rounded-sm ${d <= (streak % 7 || 7) ? (streak <= 1 ? "bg-red-400" : "bg-amber-400") : "bg-white/10"}`}
               />
             ))}
           </div>
