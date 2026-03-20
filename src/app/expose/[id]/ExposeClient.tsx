@@ -16,11 +16,9 @@ import type { GeoIntelligence } from "@/lib/geo-intelligence";
 import { IntelLogo } from "@/components/FatCatsIntel";
 import FollowButton from "@/components/FollowButton";
 import DeliveredTo from "@/components/DeliveredTo";
-import { hasSeenFollowNudge, markFollowNudgeSeen } from "@/lib/follows";
 import { ReactionBar, CommentSection, CommentCountBadge } from "@/components/CommunityEngagement";
 import { getCommunityProof } from "@/lib/social-proof";
-import { SameBlockSection, WorstRightNow, BeforeYouGo, SessionDepthBadge } from "@/components/RabbitHole";
-import { AddressCapture, FloatingAddressNudge } from "@/components/AddressGate";
+import { SameBlockSection, WorstRightNow } from "@/components/RabbitHole";
 import Image from "next/image";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -43,12 +41,6 @@ function getStaticMapUrl(lat: number, lng: number): string {
   return `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/pin-l+E8652B(${lng},${lat})/${lng},${lat},15,0/600x300@2x?access_token=${MAPBOX_TOKEN}`;
 }
 
-function getContractorScore(name: string): number {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0x7fffffff;
-  return 55 + (hash % 40);
-}
-
 // Cat paw SVG
 function PawIcon({ size = 20, color = "currentColor" }: { size?: number; color?: string }) {
   return (
@@ -61,8 +53,6 @@ function PawIcon({ size = 20, color = "currentColor" }: { size?: number; color?:
     </svg>
   );
 }
-
-// Comments now powered by CommunityEngagement component
 
 function BackIcon() {
   return (
@@ -77,116 +67,6 @@ function CheckIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 6 9 17 4 12" />
     </svg>
-  );
-}
-
-function ExternalLinkIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-      <polyline points="15 3 21 3 21 9" />
-      <line x1="10" y1="14" x2="21" y2="3" />
-    </svg>
-  );
-}
-
-// Pipeline timeline
-function PipelineTimeline({ report }: { report: Report }) {
-  const currentIdx = getPipelineIndex(report.status);
-  const createdDate = new Date(report.created_at);
-
-  const stages = [
-    { label: "Reported", detail: `Filed via ${report.source === "citizen" ? "resident" : "311"}`, date: createdDate, icon: "📍" },
-    { label: "City responded", detail: report.contractor_name || getCategoryAgency(report.category), date: currentIdx >= 1 ? new Date(createdDate.getTime() + 86400000 * 2) : null, icon: "📋" },
-    { label: "Being fixed", detail: report.contractor_name ? `${report.contractor_name} dispatched` : "Crew dispatched", date: currentIdx >= 2 ? new Date(createdDate.getTime() + 86400000 * 5) : null, icon: "🔧" },
-    { label: "Marked fixed", detail: "City says it's done", date: currentIdx >= 3 ? new Date(createdDate.getTime() + 86400000 * 12) : null, icon: "✅" },
-    { label: "Fix confirmed", detail: "Community verified", date: currentIdx >= 4 ? new Date(createdDate.getTime() + 86400000 * 14) : null, icon: "🏆" },
-  ];
-
-  return (
-    <div className="space-y-0">
-      {stages.map((stage, i) => {
-        const isCompleted = i <= currentIdx;
-        const isCurrent = i === currentIdx;
-        const isLast = i === stages.length - 1;
-        return (
-          <div key={stage.label} className="flex gap-3">
-            <div className="flex flex-col items-center">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[12px] shrink-0 ${
-                isCompleted
-                  ? isCurrent ? "bg-[var(--fc-orange)] ring-2 ring-[var(--fc-orange)]/30" : "bg-white/10"
-                  : "bg-white/[0.04] border border-white/[0.08]"
-              }`}>
-                {isCompleted ? stage.icon : <span className="text-[10px] text-white/20">{i + 1}</span>}
-              </div>
-              {!isLast && (
-                <div className={`w-[2px] flex-1 min-h-[28px] ${i < currentIdx ? "bg-[var(--fc-orange)]/40" : "bg-white/[0.06]"}`} />
-              )}
-            </div>
-            <div className={`pb-4 ${!isCompleted ? "opacity-30" : ""}`}>
-              <p className={`text-[13px] font-semibold ${isCurrent ? "text-[var(--fc-orange)]" : "text-white"}`}>{stage.label}</p>
-              <p className="text-[11px] text-[var(--fc-muted)] mt-0.5">{stage.detail}</p>
-              {stage.date && (
-                <p className="text-[10px] text-[var(--fc-muted)] opacity-60 mt-0.5">
-                  {stage.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                </p>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// Verify vote component
-function VerifyVote({ onVerified }: { report: Report; onVerified: () => void }) {
-  const [voted, setVoted] = useState<"yes" | "no" | null>(null);
-  const [yesCount] = useState(Math.floor(Math.random() * 8) + 3);
-  const [noCount] = useState(Math.floor(Math.random() * 3));
-
-  const handleVote = (vote: "yes" | "no") => {
-    if (voted) return;
-    setVoted(vote);
-    if (vote === "yes") onVerified();
-  };
-
-  const totalVotes = yesCount + noCount + (voted ? 1 : 0);
-  const yesPercent = Math.round(((yesCount + (voted === "yes" ? 1 : 0)) / totalVotes) * 100);
-
-  return (
-    <div className="glass-card p-4 space-y-3 border border-green-500/10">
-      <div className="flex items-center gap-2">
-        <span className="text-lg">🔍</span>
-        <h3 className="text-sm font-semibold text-white">Is this actually fixed?</h3>
-      </div>
-      <p className="text-[12px] text-[var(--fc-muted)]">
-        This issue was marked resolved. Help verify — your vote builds the accountability record.
-      </p>
-      {!voted ? (
-        <div className="flex gap-2">
-          <button onClick={() => handleVote("yes")} className="flex-1 h-11 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-[13px] font-semibold hover:bg-green-500/20 transition-all active:scale-95 flex items-center justify-center gap-2">
-            <span>👍</span> Yes, it&apos;s fixed
-          </button>
-          <button onClick={() => handleVote("no")} className="flex-1 h-11 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[13px] font-semibold hover:bg-red-500/20 transition-all active:scale-95 flex items-center justify-center gap-2">
-            <span>👎</span> Nope, still broken
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <span className={voted === "yes" ? "text-green-400 text-[13px]" : "text-red-400 text-[13px]"}>
-            {voted === "yes" ? "✅ You confirmed the fix" : "❌ You flagged this as unresolved"}
-          </span>
-          <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
-            <div className="h-full bg-green-400 rounded-full transition-all duration-500" style={{ width: `${yesPercent}%` }} />
-          </div>
-          <div className="flex justify-between text-[10px] text-[var(--fc-muted)]">
-            <span>{yesPercent}% say fixed</span>
-            <span>{totalVotes} votes</span>
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -220,8 +100,6 @@ function FlavorPopover({
   );
 }
 
-// CommentThread replaced by CommunityEngagement CommentSection
-
 export default function ExposeClient() {
   const params = useParams();
   const router = useRouter();
@@ -241,36 +119,15 @@ export default function ExposeClient() {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didLongPress = useRef(false);
 
-  // Milestone celebration
-  const [showMilestone, setShowMilestone] = useState(false);
-
   // Geo-intelligence state
   const [geoIntel, setGeoIntel] = useState<GeoIntelligence | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [geoLoading, setGeoLoading] = useState(false);
-  const [showNearbyPanel, setShowNearbyPanel] = useState(false);
-
-  // Follow nudge banner
-  const [showFollowNudge, setShowFollowNudge] = useState(false);
-
-  // Email capture state (soft gate after "I'm Affected" tap)
-  const [captureEmail, setCaptureEmail] = useState("");
-  const [emailCaptured, setEmailCaptured] = useState(false);
 
   // Delete exposé state
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  // "See Your Block" slide-up CTA
-  const [showSeeBlock, setShowSeeBlock] = useState(false);
-  const [blockDismissed, setBlockDismissed] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (hasSeenFollowNudge()) return;
-    const timer = setTimeout(() => setShowFollowNudge(true), 3000);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     async function load() {
@@ -304,34 +161,25 @@ export default function ExposeClient() {
     loadGeo();
   }, [report?.id, report?.lat, report?.lng, report?.category]);
 
-  // FIX: Un-stamp toggle
+  // Stamp toggle
   const handleStamp = useCallback(async () => {
     if (didLongPress.current) { didLongPress.current = false; return; }
     if (!report) return;
 
     if (stamped) {
-      // UNSTAMP
       setStamped(false);
       setStampCount((c) => Math.max(0, c - 1));
       setSelectedFlavor(null);
     } else {
-      // STAMP
       setStamped(true);
-      const newCount = stampCount + 1;
-      setStampCount(newCount);
+      setStampCount((c) => c + 1);
       setStampAnim(true);
+      if (navigator.vibrate) navigator.vibrate(40);
       setTimeout(() => setStampAnim(false), 600);
-
-      // Milestone celebrations
-      if (newCount === 50 || newCount === 100 || newCount === 500) {
-        setShowMilestone(true);
-        setTimeout(() => setShowMilestone(false), 3000);
-      }
-
       const dh = getDeviceHash();
       await addSupport(report.id, dh);
     }
-  }, [stamped, report, stampCount]);
+  }, [stamped, report]);
 
   const handlePressStart = useCallback(() => {
     didLongPress.current = false;
@@ -357,29 +205,6 @@ export default function ExposeClient() {
       await addSupport(report.id, dh);
     }
   }, [stamped, report]);
-
-  // Email capture handler — stores in localStorage (no auth needed)
-  const handleEmailCapture = useCallback(() => {
-    if (!captureEmail.includes("@")) return;
-    try {
-      const stored = JSON.parse(localStorage.getItem("fc_email_captures") || "[]");
-      stored.push({ email: captureEmail, reportId: id, ts: Date.now() });
-      localStorage.setItem("fc_email_captures", JSON.stringify(stored));
-      localStorage.setItem("fc_user_email", captureEmail);
-    } catch {}
-    setEmailCaptured(true);
-  }, [captureEmail, id]);
-
-  // "See Your Block" CTA — appears after user scrolls past halfway
-  useEffect(() => {
-    if (blockDismissed) return;
-    const handleScroll = () => {
-      const scrollPct = window.scrollY / (document.body.scrollHeight - window.innerHeight);
-      if (scrollPct > 0.4) setShowSeeBlock(true);
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [blockDismissed]);
 
   const handleMarkFixed = async () => {
     if (!report) return;
@@ -421,13 +246,11 @@ export default function ExposeClient() {
   const hasLocation = report.lat != null && report.lng != null;
   const heroSrc = report.photo_url ? report.photo_url : hasLocation ? getStaticMapUrl(report.lat!, report.lng!) : null;
   const pipelineIdx = getPipelineIndex(report.status);
-  const isResolved = pipelineIdx >= 3;
-  const isVerified = pipelineIdx >= 4;
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
   const flavorEmoji = selectedFlavor ? FLAVOR_REACTIONS.find((r) => r.label === selectedFlavor)?.emoji : null;
   const daysOpen = Math.max(1, Math.floor((Date.now() - new Date(report.created_at).getTime()) / 86400000));
 
-  // Build "Delivered to" officials list from geo-intel + report data
+  // Build "Delivered to" officials list
   const deliveredOfficials: { role: string; name?: string; handle?: string; type: "council" | "agency" | "contractor" }[] = [];
   if (geoIntel?.councilMember) {
     deliveredOfficials.push({
@@ -453,10 +276,14 @@ export default function ExposeClient() {
     });
   }
 
+  const costData = estimateRepairCost(report.category);
+  const proof = getCommunityProof(report.id, stampCount);
+
   return (
     <AppShell>
       <div className="max-w-lg mx-auto animate-fade-in pb-20">
-        {/* Hero image */}
+
+        {/* ═══ SECTION 1: HERO + TITLE + STATUS ═══ */}
         <div className="w-full aspect-[16/9] bg-[var(--fc-surface)] overflow-hidden relative">
           {heroSrc ? (
             <img src={heroSrc} alt={report.title} className="w-full h-full object-cover" />
@@ -472,7 +299,6 @@ export default function ExposeClient() {
           <button onClick={() => router.back()} className="absolute top-4 left-4 w-10 h-10 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center active:scale-90 transition-transform">
             <BackIcon />
           </button>
-          {/* Urgency badge */}
           {daysOpen >= 14 && pipelineIdx < 3 && (
             <div className="absolute top-4 right-4 px-3 py-1 rounded-lg bg-red-500/20 border border-red-500/30 backdrop-blur-sm">
               <span className="text-[11px] font-bold text-red-400">Open {daysOpen} days</span>
@@ -481,7 +307,7 @@ export default function ExposeClient() {
         </div>
 
         <div className="px-4 py-5 space-y-5">
-          {/* Status + pipeline + author actions */}
+          {/* Status bar + author menu */}
           <div>
             <div className="flex items-center gap-3 mb-3">
               <StatusPill status={report.status} />
@@ -501,8 +327,6 @@ export default function ExposeClient() {
                       <circle cx="12" cy="19" r="2" />
                     </svg>
                   </button>
-
-                  {/* Dropdown menu */}
                   {showDeleteMenu && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setShowDeleteMenu(false)} />
@@ -533,45 +357,31 @@ export default function ExposeClient() {
               )}
             </div>
             <PipelineSteps status={report.status} />
-            <div className="flex justify-between mt-1">
-              <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Reported</span>
-              <span className="text-[8px] text-[var(--fc-muted)] uppercase tracking-wide">Confirmed</span>
-            </div>
           </div>
 
-          {/* Title */}
+          {/* Title + meta */}
           <div>
             <h1 className="text-2xl font-bold text-white leading-tight mb-2">{filterTitle(report.title, report.category)}</h1>
-            <div className="flex items-center gap-2 text-[13px]">
+            <div className="flex items-center gap-2 text-[13px] flex-wrap">
               {report.neighborhood && <span className="text-[var(--fc-info)] font-medium">{report.neighborhood}</span>}
               <span className="text-[var(--fc-muted)] opacity-40">·</span>
               <span className="text-[var(--fc-muted)]">{timeAgo(report.created_at)}</span>
               <span className="text-[var(--fc-muted)] opacity-40">·</span>
               <CommentCountBadge itemId={report.id} />
+              {report.category && (
+                <>
+                  <span className="text-[var(--fc-muted)] opacity-40">·</span>
+                  <span className="text-[var(--fc-muted)] capitalize">{report.category.replace(/_/g, " ")}</span>
+                </>
+              )}
             </div>
           </div>
 
           {report.description && <p className="text-[14px] text-white/75 leading-relaxed">{report.description}</p>}
 
-          {/* Delivered To — Dharmaraj already notified these officials */}
-          {deliveredOfficials.length > 0 && (
-            <DeliveredTo
-              officials={deliveredOfficials}
-              exposéUrl={shareUrl}
-              exposéTitle={report.title}
-              neighborhood={report.neighborhood}
-              costRange={estimateRepairCost(report.category).range}
-              daysOpen={daysOpen}
-              stampCount={stampCount}
-            />
-          )}
-
-          {/* ✨ "I'm Affected Too" prominent CTA — THE gateway drug */}
-          {(() => {
-            const proof = getCommunityProof(report.id, stampCount);
-            return (
+          {/* ═══ SECTION 2: "I'M AFFECTED" CTA — The gateway drug ═══ */}
           <div className="space-y-3">
-            {/* Safety proof bar — you're not alone */}
+            {/* Social proof */}
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06]">
               <div className="flex -space-x-1.5">
                 {["#E8652B", "#ff8c5a", "#F59E0B", "#22C55E"].map((c, i) => (
@@ -583,386 +393,145 @@ export default function ExposeClient() {
               </span>
             </div>
 
-            <button
-              onMouseDown={handlePressStart}
-              onMouseUp={handlePressEnd}
-              onMouseLeave={handlePressEnd}
-              onTouchStart={handlePressStart}
-              onTouchEnd={handlePressEnd}
-              onClick={handleStamp}
-              className={`w-full flex items-center justify-center gap-3 py-4 rounded-2xl text-[16px] font-bold transition-all active:scale-[0.97] select-none ${
-                stamped
-                  ? "bg-[var(--fc-orange)]/15 text-[var(--fc-orange)] border-2 border-[var(--fc-orange)]/40 shadow-[0_0_20px_rgba(232,101,43,0.15)]"
-                  : "bg-gradient-to-r from-[var(--fc-orange)] to-[#ff8c5a] text-white border-2 border-[var(--fc-orange)]/20 shadow-[0_4px_20px_rgba(232,101,43,0.3)] hover:shadow-[0_4px_30px_rgba(232,101,43,0.45)]"
-              }`}
-            >
-              <span className={`text-[22px] transition-transform ${stampAnim ? "animate-heart-pop" : ""}`}>
-                {flavorEmoji || <PawIcon size={24} color={stamped ? "#E8652B" : "#ffffff"} />}
-              </span>
-              <span>{stamped ? `You + ${Math.max(0, stampCount - 1)} affected` : "I'm Affected Too"}</span>
-              {!stamped && <span className="text-white/60 text-[13px] font-normal">+{stampCount}</span>}
-            </button>
-            <FlavorPopover visible={showFlavors} onSelect={handleFlavorSelect} onClose={() => setShowFlavors(false)} />
-
-            {/* Soft email capture — appears after first stamp */}
-            {stamped && !emailCaptured && (
-              <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] animate-fade-in">
-                <span className="text-[13px] text-[var(--fc-muted)] shrink-0">Get updates on this issue:</span>
-                <input
-                  type="email"
-                  placeholder="your@email.com"
-                  value={captureEmail}
-                  onChange={(e) => setCaptureEmail(e.target.value)}
-                  className="flex-1 bg-transparent text-white text-[13px] outline-none placeholder:text-white/20 min-w-0"
-                />
-                <button
-                  onClick={handleEmailCapture}
-                  disabled={!captureEmail.includes("@")}
-                  className="px-3 py-1.5 rounded-lg bg-[var(--fc-orange)] text-white text-[12px] font-bold disabled:opacity-30 hover:bg-[var(--fc-orange-hover)] transition-all active:scale-95 shrink-0"
-                >
-                  Track
-                </button>
-              </div>
-            )}
-            {emailCaptured && (
-              <p className="text-[12px] text-green-400 text-center animate-fade-in">✓ We&apos;ll notify you when this changes</p>
-            )}
-
-            {/* Weekly activity proof — the ecosystem is alive */}
-            <div className="flex items-center justify-center gap-4 py-2">
-              <span className="text-[10px] text-[var(--fc-muted)]">
-                <span className="text-white/70 font-semibold">{proof.weeklyExposés}</span> exposés this week
-              </span>
-              <span className="text-white/10">·</span>
-              <span className="text-[10px] text-[var(--fc-muted)]">
-                <span className="text-green-400/80 font-semibold">{proof.fixedThisMonth}</span> fixed this month
-              </span>
+            <div className="relative">
+              <button
+                onMouseDown={handlePressStart}
+                onMouseUp={handlePressEnd}
+                onMouseLeave={handlePressEnd}
+                onTouchStart={handlePressStart}
+                onTouchEnd={handlePressEnd}
+                onClick={handleStamp}
+                className={`w-full flex items-center justify-center gap-3 py-4 rounded-2xl text-[16px] font-bold transition-all active:scale-[0.97] select-none ${
+                  stamped
+                    ? "bg-[var(--fc-orange)]/15 text-[var(--fc-orange)] border-2 border-[var(--fc-orange)]/40 shadow-[0_0_20px_rgba(232,101,43,0.15)]"
+                    : "bg-gradient-to-r from-[var(--fc-orange)] to-[#ff8c5a] text-white border-2 border-[var(--fc-orange)]/20 shadow-[0_4px_20px_rgba(232,101,43,0.3)] hover:shadow-[0_4px_30px_rgba(232,101,43,0.45)]"
+                }`}
+              >
+                <span className={`text-[22px] transition-transform ${stampAnim ? "animate-heart-pop" : ""}`}>
+                  {flavorEmoji || <PawIcon size={24} color={stamped ? "#E8652B" : "#ffffff"} />}
+                </span>
+                <span>{stamped ? `You + ${Math.max(0, stampCount - 1)} affected` : "I'm Affected Too"}</span>
+                {!stamped && <span className="text-white/60 text-[13px] font-normal">+{stampCount}</span>}
+              </button>
+              <FlavorPopover visible={showFlavors} onSelect={handleFlavorSelect} onClose={() => setShowFlavors(false)} />
             </div>
           </div>
-            );
-          })()}
 
-          {/* Cost Intelligence card */}
-          {(() => {
-            const costData = estimateRepairCost(report.category);
-            return (
-              <div className="glass-card-elevated p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                    <IntelLogo size={18} />
-                    Cost Intelligence
-                  </h3>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <span className="text-[11px] text-[var(--fc-muted)] block">Est. repair cost</span>
-                    <span className="text-[15px] text-[var(--fc-orange)] font-bold">{filterCost(costData.range, costData.avg)}</span>
-                    <span className="text-[11px] text-[var(--fc-muted)] block">{costData.unit}</span>
-                  </div>
-                  {geoIntel && geoIntel.nearbyCount > 0 && (
-                    <div>
-                      <span className="text-[11px] text-[var(--fc-muted)] block">Area spend (~3 blocks)</span>
-                      <span className="text-[15px] text-white font-bold">{geoIntel.totalAreaSpend}</span>
-                      <button
-                        onClick={() => setShowNearbyPanel(!showNearbyPanel)}
-                        className="text-[11px] text-[var(--fc-info)] hover:underline cursor-pointer block"
-                      >
-                        {geoIntel.nearbyCount} issues within ~3 blocks →
-                      </button>
-                    </div>
+          {/* ═══ SECTION 3: DELIVERED TO — Who got notified ═══ */}
+          {deliveredOfficials.length > 0 && (
+            <DeliveredTo
+              officials={deliveredOfficials}
+              exposéUrl={shareUrl}
+              exposéTitle={report.title}
+              neighborhood={report.neighborhood}
+              costRange={costData.range}
+              daysOpen={daysOpen}
+              stampCount={stampCount}
+            />
+          )}
+
+          {/* ═══ SECTION 4: COST + WHO HANDLES — Merged intelligence ═══ */}
+          <div className="glass-card-elevated p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <IntelLogo size={18} />
+              <h3 className="text-sm font-semibold text-white">Intelligence</h3>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Cost estimate */}
+              <div>
+                <span className="text-[11px] text-[var(--fc-muted)] block">Est. repair cost</span>
+                <span className="text-[15px] text-[var(--fc-orange)] font-bold">{filterCost(costData.range, costData.avg)}</span>
+                <span className="text-[11px] text-[var(--fc-muted)] block">{costData.unit}</span>
+              </div>
+              {/* Nearby issue count */}
+              {geoIntel && geoIntel.nearbyCount > 0 && (
+                <div>
+                  <span className="text-[11px] text-[var(--fc-muted)] block">Nearby (~3 blocks)</span>
+                  <span className="text-[15px] text-white font-bold">{geoIntel.nearbyCount} issues</span>
+                  {geoIntel.totalAreaSpend && (
+                    <span className="text-[11px] text-[var(--fc-muted)] block">{geoIntel.totalAreaSpend} spent</span>
                   )}
                 </div>
+              )}
+            </div>
 
-                {/* Nearby issues drilldown */}
-                {showNearbyPanel && geoIntel && (
-                  <div className="mt-2 space-y-2 pt-3 border-t border-white/[0.06]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-[var(--fc-muted)] font-semibold uppercase tracking-wider">Nearby Issues (within 3 blocks)</span>
-                      <button onClick={() => setShowNearbyPanel(false)} className="text-[10px] text-[var(--fc-muted)] hover:text-white">Close</button>
-                    </div>
-                    {geoIntel.nearbyReports && geoIntel.nearbyReports.length > 0 ? (
-                      geoIntel.nearbyReports.slice(0, 5).map((nr) => (
-                        <a
-                          key={nr.id}
-                          href={`/expose/${nr.id}`}
-                          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <span className="text-[12px] text-white font-medium block truncate">{nr.title}</span>
-                            <span className="text-[10px] text-[var(--fc-muted)]">
-                              {nr.neighborhood || "NYC"} · {nr.status === "fixed" || nr.status === "verified" ? "✅ Resolved" : `📍 ${nr.status.replace(/_/g, " ")}`}
-                            </span>
-                          </div>
-                          <span className="text-[11px] text-[var(--fc-muted)] shrink-0">
-                            {estimateRepairCost(nr.category).range}
-                          </span>
-                        </a>
-                      ))
-                    ) : (
-                      <p className="text-[11px] text-[var(--fc-muted)]">Nearby issue details loading...</p>
+            {/* Responsible agency */}
+            {hasLocation && (
+              <div className="pt-3 border-t border-white/[0.06] space-y-2">
+                <span className="text-[11px] text-[var(--fc-muted)] uppercase tracking-wider font-semibold">Who handles this</span>
+                {(geoIntel?.neighborhood || report.neighborhood) && (
+                  <p className="text-[13px] text-[var(--fc-muted)]">
+                    <span className="text-white font-medium">{geoIntel?.neighborhood || report.neighborhood}</span>
+                    {geoIntel?.nearestIntersection && (
+                      <span> — {geoIntel.nearestIntersection}</span>
                     )}
-                    {geoIntel.nearbyReports && geoIntel.nearbyReports.length > 5 && (
-                      <p className="text-[10px] text-[var(--fc-muted)] text-center">+ {geoIntel.nearbyReports.length - 5} more nearby</p>
-                    )}
-                  </div>
+                  </p>
                 )}
-
-                {geoIntel?.isRepeatOffender && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
-                    <span className="text-[14px]">🔄</span>
-                    <div>
-                      <span className="text-[12px] text-red-400 font-semibold">Repeat Issue — {geoIntel.repeatCount} times at this spot</span>
-                      <span className="text-[11px] text-[var(--fc-muted)] block">The same type of problem keeps occurring here</span>
-                    </div>
-                  </div>
-                )}
-                {geoIntel?.oldestOpenDays != null && geoIntel.oldestOpenDays > 7 && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <span className="text-[14px]">⏳</span>
-                    <span className="text-[12px] text-amber-400">Oldest open issue nearby: <span className="font-semibold">{geoIntel.oldestOpenDays} days</span></span>
-                  </div>
-                )}
-
-                {/* Source citation */}
-                <p className="text-[9px] text-[var(--fc-muted)] opacity-50 leading-snug">
-                  Estimates based on{" "}
-                  <a href="https://data.cityofnewyork.us/" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/50">NYC Open Data</a>,{" "}
-                  <a href="https://www.dot.ny.gov/" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/50">DOT</a>, and{" "}
-                  <a href="https://www.nyc.gov/site/dep/" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/50">DEP</a>{" "}
-                  public data averages. Actual costs may vary.
-                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--fc-info)]/10 border border-[var(--fc-info)]/20 text-[12px] text-[var(--fc-info)] font-semibold">
+                    {getCategoryAgency(report.category)}
+                  </span>
+                  {geoIntel?.councilMember && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-[12px] text-white font-medium">
+                      🏛️ {geoIntel.councilMember.name}
+                      {geoIntel.councilMember.twitterHandle && (
+                        <span className="text-[var(--fc-info)]">{geoIntel.councilMember.twitterHandle}</span>
+                      )}
+                    </span>
+                  )}
+                </div>
               </div>
-            );
-          })()}
+            )}
 
-          {/* Contractor info card */}
-          {report.contractor_name && (
-            <div className="glass-card p-4 space-y-2">
-              <h3 className="text-[12px] text-[var(--fc-muted)] uppercase tracking-wider font-semibold">Contractor</h3>
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] text-white font-medium">{report.contractor_name}</span>
-                <span className={`text-[14px] font-bold ${
-                  getContractorScore(report.contractor_name) >= 80 ? "text-green-400" :
-                  getContractorScore(report.contractor_name) >= 65 ? "text-amber-400" : "text-red-400"
-                }`}>
-                  {getContractorScore(report.contractor_name)}% on-time
+            {/* Repeat offender alert */}
+            {geoIntel?.isRepeatOffender && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
+                <span className="text-[14px]">🔄</span>
+                <span className="text-[12px] text-red-400 font-semibold">
+                  Repeat Issue — {geoIntel.repeatCount} times at this spot
                 </span>
               </div>
-            </div>
-          )}
-
-          {/* Verify vote */}
-          {isResolved && !isVerified && (
-            <VerifyVote report={report} onVerified={() => showToastMsg("Vote recorded. Thanks for verifying.")} />
-          )}
-
-          {/* Verified badge */}
-          {isVerified && (
-            <div className="glass-card p-4 border border-emerald-500/20 bg-emerald-500/5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
-                  <Image src="/assets/logo-64.png" alt="Verified" width={24} height={24} style={{ filter: 'drop-shadow(0 0 6px rgba(34, 197, 94, 0.5))' }} />
-                </div>
-                <div>
-                  <p className="text-[13px] text-emerald-300 font-semibold">Community Verified</p>
-                  <p className="text-[11px] text-[var(--fc-muted)]">Multiple people confirmed this fix. This is now part of the permanent accountability record.</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Pipeline timeline */}
-          <div className="glass-card p-4">
-            <h3 className="text-[12px] text-[var(--fc-muted)] uppercase tracking-wider font-semibold mb-4">Timeline</h3>
-            <PipelineTimeline report={report} />
-          </div>
-
-          {/* 2x2 Info grid */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="glass-card p-3.5">
-              <span className="text-[11px] text-[var(--fc-muted)] block mb-1">First seen</span>
-              <span className="text-[13px] text-white font-medium">{new Date(report.created_at).toLocaleDateString()}</span>
-            </div>
-            <div className="glass-card p-3.5">
-              <span className="text-[11px] text-[var(--fc-muted)] block mb-1">Source</span>
-              <span className="text-[13px] text-white font-medium">{report.source === "citizen" ? "Resident exposé" : "NYC 311 data"}</span>
-            </div>
-            {report.category && (
-              <div className="glass-card p-3.5">
-                <span className="text-[11px] text-[var(--fc-muted)] block mb-1">Category</span>
-                <span className="text-[13px] text-white font-medium capitalize">{report.category.replace(/_/g, " ")}</span>
-              </div>
             )}
-            <div className="glass-card p-3.5">
-              <span className="text-[11px] text-[var(--fc-muted)] block mb-1">People affected</span>
-              <span className="text-[13px] text-white font-medium">{stampCount}</span>
-            </div>
+
+            {/* Source citation */}
+            <p className="text-[9px] text-[var(--fc-muted)] opacity-50 leading-snug">
+              Estimates based on{" "}
+              <a href="https://data.cityofnewyork.us/" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/50">NYC Open Data</a>,{" "}
+              <a href="https://www.dot.ny.gov/" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/50">DOT</a>, and{" "}
+              <a href="https://www.nyc.gov/site/dep/" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/50">DEP</a>{" "}
+              public data.
+            </p>
           </div>
 
-          {/* Who's Responsible */}
-          {hasLocation && (
-            <div className="glass-card-elevated p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                  <IntelLogo size={18} />
-                  Who handles this
-                </h3>
-              </div>
-              {(geoIntel?.neighborhood || report.neighborhood) && (
-                <p className="text-[13px] text-[var(--fc-muted)]">
-                  This is in <span className="text-white font-medium">{geoIntel?.neighborhood || report.neighborhood}</span>
-                  {geoIntel?.nearestIntersection && (
-                    <span className="text-[var(--fc-muted)]"> — {geoIntel.nearestIntersection}</span>
-                  )}
-                </p>
-              )}
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--fc-info)]/10 border border-[var(--fc-info)]/20">
-                <span className="text-[12px] text-[var(--fc-info)] font-semibold">{getCategoryAgency(report.category)}</span>
-              </div>
-              {/* Council member — auto-detected + claim profile CTA */}
-              {geoIntel?.councilMember ? (
-                <div className="px-3 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[var(--fc-surface-2)] flex items-center justify-center text-[18px] shrink-0">🏛️</div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[11px] text-[var(--fc-muted)] block">Council District {geoIntel.councilMember.district} · {geoIntel.councilMember.borough}</span>
-                      <span className="text-[14px] text-white font-semibold">{geoIntel.councilMember.name}</span>
-                      {geoIntel.councilMember.twitterHandle && (
-                        <a
-                          href={`https://twitter.com/${geoIntel.councilMember.twitterHandle.replace('@', '')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[12px] text-[var(--fc-info)] hover:underline block"
-                        >
-                          {geoIntel.councilMember.twitterHandle}
-                        </a>
-                      )}
-                    </div>
-                    {/* Tweet @ official button */}
-                    {geoIntel.councilMember.twitterHandle && (
-                      <button
-                        onClick={() => {
-                          const handle = geoIntel.councilMember?.twitterHandle || "";
-                          const costData = estimateRepairCost(report.category);
-                          const text = `${handle} ${costData.range} spent, ${report.title.toLowerCase()} in ${report.neighborhood || "NYC"} is still unresolved after ${daysOpen} days. ${stampCount} people affected.\n\nPoint. Expose. Fix. \u2192 ${typeof window !== "undefined" ? window.location.href : ""}`;
-                          window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank");
-                        }}
-                        className="px-3 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-white text-[11px] font-bold transition-all active:scale-95 shrink-0"
-                      >
-                        Tweet @
-                      </button>
-                    )}
-                  </div>
-                  {/* One-click claim profile */}
-                  <button
-                    onClick={() => {
-                      const name = geoIntel.councilMember?.name || "official";
-                      const claimUrl = `mailto:team@fatcatsapp.com?subject=Claim%20Profile%3A%20${encodeURIComponent(name)}&body=I%20am%20${encodeURIComponent(name)}%20and%20I%27d%20like%20to%20claim%20my%20FatCats%20profile%20to%20respond%20to%20constituents.`;
-                      window.open(claimUrl, "_blank");
-                    }}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/[0.03] border border-dashed border-white/[0.1] text-[var(--fc-muted)] hover:text-white hover:bg-white/[0.06] hover:border-[var(--fc-orange)]/30 transition-all text-[12px] font-medium"
-                  >
-                    <span className="text-[14px]">✨</span>
-                    Are you {geoIntel.councilMember.name}? Claim your profile to respond
-                  </button>
-                </div>
-              ) : geoLoading ? (
-                <div className="flex items-center gap-2 px-3 py-2">
-                  <div className="w-4 h-4 border-2 border-[var(--fc-orange)] border-t-transparent rounded-full animate-spin" />
-                  <span className="text-[12px] text-[var(--fc-muted)]">Looking up council member...</span>
-                </div>
-              ) : (
-                <a href="https://council.nyc.gov/districts/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] text-[var(--fc-orange)] font-medium hover:underline">
-                  Look up your council member
-                  <ExternalLinkIcon />
-                </a>
-              )}
-            </div>
-          )}
-
-          {/* Community Reactions — visible breakdown */}
-          <ReactionBar itemId={report.id} />
-
-          {/* Comments with threading */}
-          <CommentSection itemId={report.id} maxVisible={3} />
+          {/* ═══ SECTION 5: COMMUNITY — Reactions + Comments ═══ */}
+          <div className="space-y-4">
+            <ReactionBar itemId={report.id} />
+            <CommentSection itemId={report.id} maxVisible={3} />
+          </div>
 
           <p className="text-[11px] text-[var(--fc-muted)] text-center pb-2">
             Every exposé is a receipt. Thanks for helping your city.
           </p>
 
-          {/* ─── RABBIT HOLE: pulls them deeper ─── */}
-
-          {/* Session depth — "5 exposés uncovered" dopamine hit */}
-          <div className="py-2">
-            <SessionDepthBadge />
-          </div>
-
-          {/* Same block, same story — nearby issues */}
-          <div className="py-3">
+          {/* ═══ SECTION 6: RABBIT HOLE — Keep them exploring ═══ */}
+          <div className="space-y-4">
             <SameBlockSection
               currentId={report.id}
               lat={report.lat}
               lng={report.lng}
               neighborhood={report.neighborhood}
             />
-          </div>
-
-          {/* The worst right now — outrage-ranked trending issues */}
-          <div className="py-3">
             <WorstRightNow currentId={report.id} />
           </div>
 
-          {/* ─── ADDRESS GATE: subliminal top-of-funnel ─── */}
-          <div id="address-gate">
-            <AddressCapture context={report.neighborhood} />
-          </div>
-
-          {/* Before you go — one more compelling issue */}
-          <div className="py-3 mb-20">
-            <BeforeYouGo currentId={report.id} />
+          {/* Follow CTA — single inline button, not floating */}
+          <div className="flex justify-center py-3">
+            <FollowButton kind="report" id={report.id} variant="compact" />
           </div>
         </div>
 
-        {/* Follow nudge — compact floating pill on right side */}
-        {showFollowNudge && (
-          <div className="fixed right-3 top-1/2 -translate-y-1/2 z-50 animate-slide-up">
-            <div className="flex flex-col items-center gap-2 px-2 py-3 rounded-2xl bg-[var(--fc-surface)]/95 backdrop-blur-xl border border-white/[0.1] shadow-xl">
-              <FollowButton kind="report" id={report.id} variant="compact" />
-              <button
-                onClick={() => { setShowFollowNudge(false); markFollowNudgeSeen(); }}
-                className="text-[var(--fc-muted)] hover:text-white transition-colors text-[9px]"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 🗺️ "See Your Block" slide-up CTA */}
-        {showSeeBlock && !blockDismissed && (
-          <div className="fixed bottom-[120px] left-0 right-0 z-40 flex justify-center px-4 animate-slide-up">
-            <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-[var(--fc-surface)]/95 backdrop-blur-xl border border-[var(--fc-orange)]/20 shadow-2xl max-w-md w-full">
-              <span className="text-[20px]">🗺️</span>
-              <a
-                href="/map"
-                className="flex-1 text-[14px] text-white font-semibold hover:text-[var(--fc-orange)] transition-colors"
-              >
-                See what&apos;s happening on YOUR block →
-              </a>
-              <button
-                onClick={() => setBlockDismissed(true)}
-                className="text-[var(--fc-muted)] hover:text-white transition-colors text-xs shrink-0"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Floating address nudge for users who scroll past */}
-        <FloatingAddressNudge />
-
-        {/* Sticky share bar at bottom — X, Reddit, Share */}
+        {/* Sticky share bar */}
         <ShareSheet
           title={report.title}
           neighborhood={report.neighborhood}
@@ -972,26 +541,13 @@ export default function ExposeClient() {
           createdAt={report.created_at}
           agencyHandle={getAgencyHandle(report.category)}
           councilMemberHandle={geoIntel?.councilMember?.twitterHandle || undefined}
-          costRange={estimateRepairCost(report.category).range}
+          costRange={costData.range}
           totalAreaSpend={geoIntel?.totalAreaSpend || undefined}
           nearbyCount={geoIntel?.nearbyCount}
           variant="sticky"
           reportId={report.id}
           deliveredOfficials={deliveredOfficials.map(o => ({ role: o.role, name: o.name, handle: o.handle }))}
         />
-
-        {/* Milestone celebration overlay */}
-        {showMilestone && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-            <div className="bg-[var(--fc-surface)]/95 backdrop-blur-xl border border-[var(--fc-orange)]/30 rounded-2xl p-8 text-center animate-scale-in shadow-2xl">
-              <div className="intel-glow mx-auto mb-3">
-                <Image src="/assets/logo-128.png" alt="FatCats" width={56} height={56} />
-              </div>
-              <p className="text-lg font-bold text-white">{stampCount} people affected</p>
-              <p className="text-[13px] text-[var(--fc-muted)] mt-1">This exposé is gaining traction</p>
-            </div>
-          </div>
-        )}
 
         {/* ═══ DELETE CONFIRMATION MODAL ═══ */}
         {showDeleteConfirm && (

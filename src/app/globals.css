@@ -466,6 +466,31 @@ h1, h2, h3, .font-heading {
   font-variant-numeric: tabular-nums lining-nums;
 }
 
+/* ═══ EVIDENCE FRAME ANIMATIONS ═══ */
+
+/* Orange flash — triggers on capture */
+@keyframes evidenceFlash {
+  0% { background: rgba(232, 101, 43, 0.5); opacity: 1; }
+  100% { background: rgba(232, 101, 43, 0); opacity: 0; }
+}
+.animate-evidence-flash {
+  animation: evidenceFlash 0.3s ease-out forwards;
+}
+
+/* Filed confirmation — scale + fade in */
+@keyframes filedIn {
+  0% { opacity: 0; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.animate-filed-in {
+  animation: filedIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Scrollbar hide utility */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
 /* Respect reduced motion for new animations */
 @media (prefers-reduced-motion: reduce) {
   .animate-cosign-pop,
@@ -476,7 +501,9 @@ h1, h2, h3, .font-heading {
   .animate-modal-shake,
   .animate-toast-up,
   .animate-count-up,
-  .animate-press {
+  .animate-press,
+  .animate-evidence-flash,
+  .animate-filed-in {
     animation: none;
   }
   .card-lift:hover {
