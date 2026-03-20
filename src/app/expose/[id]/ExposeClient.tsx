@@ -6,7 +6,7 @@ import AppShell from "@/components/AppShell";
 import StatusPill from "@/components/StatusPill";
 import { PipelineSteps } from "@/components/StatusPill";
 import ShareSheet from "@/components/ShareSheet";
-import { getReportById, addSupport, hasSupported, markAsFixed } from "@/lib/reports";
+import { getReportById, addSupport, hasSupported, markAsFixed, deleteReport } from "@/lib/reports";
 import { getDeviceHash } from "@/lib/device";
 import { getPipelineIndex, getCategoryAgency, getAgencyHandle, FLAVOR_REACTIONS } from "@/lib/types";
 import type { Report } from "@/lib/types";
@@ -256,6 +256,11 @@ export default function ExposeClient() {
   const [captureEmail, setCaptureEmail] = useState("");
   const [emailCaptured, setEmailCaptured] = useState(false);
 
+  // Delete exposé state
+  const [showDeleteMenu, setShowDeleteMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   // "See Your Block" slide-up CTA
   const [showSeeBlock, setShowSeeBlock] = useState(false);
   const [blockDismissed, setBlockDismissed] = useState(false);
@@ -476,18 +481,55 @@ export default function ExposeClient() {
         </div>
 
         <div className="px-4 py-5 space-y-5">
-          {/* Status + pipeline */}
+          {/* Status + pipeline + author actions */}
           <div>
             <div className="flex items-center gap-3 mb-3">
               <StatusPill status={report.status} />
               <span className="text-[11px] text-[var(--fc-muted)]">
                 {report.source === "citizen" ? "Resident exposé" : "City data"}
               </span>
-              {isAuthor && report.status !== "fixed" && report.status !== "verified" && (
-                <button onClick={handleMarkFixed} className="ml-auto flex items-center gap-1 text-[11px] text-green-400 hover:text-green-300 transition-colors">
-                  <CheckIcon />
-                  <span>Mark fixed</span>
-                </button>
+              {isAuthor && (
+                <div className="ml-auto relative">
+                  <button
+                    onClick={() => setShowDeleteMenu(!showDeleteMenu)}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--fc-muted)] hover:text-white hover:bg-white/[0.06] transition-all active:scale-90"
+                    aria-label="More options"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="12" cy="5" r="2" />
+                      <circle cx="12" cy="12" r="2" />
+                      <circle cx="12" cy="19" r="2" />
+                    </svg>
+                  </button>
+
+                  {/* Dropdown menu */}
+                  {showDeleteMenu && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowDeleteMenu(false)} />
+                      <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-[var(--fc-surface-2)] border border-white/[0.1] shadow-xl shadow-black/40 z-50 animate-scale-in overflow-hidden">
+                        {report.status !== "fixed" && report.status !== "verified" && (
+                          <button
+                            onClick={() => { setShowDeleteMenu(false); handleMarkFixed(); }}
+                            className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[13px] text-green-400 hover:bg-white/[0.04] transition-colors"
+                          >
+                            <CheckIcon />
+                            <span>Mark as fixed</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { setShowDeleteMenu(false); setShowDeleteConfirm(true); }}
+                          className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[13px] text-red-400 hover:bg-red-500/[0.06] transition-colors"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
+                          <span>Delete my exposé</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
             </div>
             <PipelineSteps status={report.status} />
@@ -951,8 +993,71 @@ export default function ExposeClient() {
           </div>
         )}
 
+        {/* ═══ DELETE CONFIRMATION MODAL ═══ */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center px-6">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !deleting && setShowDeleteConfirm(false)} />
+            <div className="relative w-full max-w-sm rounded-2xl bg-[var(--fc-surface-2)] border border-white/[0.1] shadow-2xl animate-modal-shake overflow-hidden">
+              <div className="p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center shrink-0">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-bold text-white">Delete this exposé?</h3>
+                    <p className="text-[12px] text-[var(--fc-muted)] mt-1">
+                      {(report.cosign_count || 0) > 0
+                        ? `${report.cosign_count} co-sign${report.cosign_count === 1 ? "" : "s"} and ${stampCount} affected people's voices will be removed.`
+                        : `${stampCount} people's voices will be removed.`}
+                      {" "}This can&apos;t be undone.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex border-t border-white/[0.06]">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={deleting}
+                  className="flex-1 py-3.5 text-[13px] font-semibold text-white hover:bg-white/[0.04] transition-colors active:scale-[0.98]"
+                >
+                  Keep it
+                </button>
+                <div className="w-px bg-white/[0.06]" />
+                <button
+                  onClick={async () => {
+                    setDeleting(true);
+                    const dh = getDeviceHash();
+                    const result = await deleteReport(report.id, dh);
+                    if (result.success) {
+                      setShowDeleteConfirm(false);
+                      showToastMsg("Exposé deleted");
+                      setTimeout(() => router.push("/feed"), 800);
+                    } else {
+                      showToastMsg(result.error || "Failed to delete");
+                      setDeleting(false);
+                    }
+                  }}
+                  disabled={deleting}
+                  className="flex-1 py-3.5 text-[13px] font-bold text-red-400 hover:bg-red-500/[0.06] transition-colors active:scale-[0.98]"
+                >
+                  {deleting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-3.5 h-3.5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                      Deleting...
+                    </span>
+                  ) : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {toast && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[var(--fc-surface)]/90 backdrop-blur-xl border border-white/10 text-white text-sm px-5 py-2.5 rounded-xl animate-slide-up z-[60] shadow-xl">
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[var(--fc-surface)]/90 backdrop-blur-xl border border-white/10 text-white text-sm px-5 py-2.5 rounded-xl animate-toast-up z-[60] shadow-xl">
             {toast}
           </div>
         )}

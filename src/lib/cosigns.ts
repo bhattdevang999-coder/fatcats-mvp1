@@ -98,6 +98,48 @@ export async function addCoSign(
   };
 }
 
+/**
+ * Remove a co-sign — lets users toggle off if they change their mind.
+ * Deletes the co-sign record and decrements the report's cosign_count.
+ */
+export async function removeCoSign(
+  reportId: string,
+  deviceHash: string
+): Promise<{ success: boolean; newCount: number }> {
+  // Delete the co-sign
+  const { error: deleteError } = await supabase
+    .from("cosigns")
+    .delete()
+    .eq("report_id", reportId)
+    .eq("device_hash", deviceHash);
+
+  if (deleteError) {
+    console.error("Error removing co-sign:", deleteError);
+    const { data: current } = await supabase
+      .from("reports")
+      .select("cosign_count")
+      .eq("id", reportId)
+      .single();
+    return { success: false, newCount: current?.cosign_count || 0 };
+  }
+
+  // Decrement cosign_count
+  const { data: current } = await supabase
+    .from("reports")
+    .select("cosign_count")
+    .eq("id", reportId)
+    .single();
+
+  const newCount = Math.max(0, (current?.cosign_count || 1) - 1);
+
+  await supabase
+    .from("reports")
+    .update({ cosign_count: newCount })
+    .eq("id", reportId);
+
+  return { success: true, newCount };
+}
+
 export async function hasCosigned(
   reportId: string,
   deviceHash: string

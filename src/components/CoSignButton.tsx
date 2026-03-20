@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { addCoSign, hasCosigned } from "@/lib/cosigns";
+import { addCoSign, hasCosigned, removeCoSign } from "@/lib/cosigns";
 import { getDeviceHash } from "@/lib/device";
 
 interface CoSignButtonProps {
@@ -19,6 +19,7 @@ export default function CoSignButton({
   const [signed, setSigned] = useState(false);
   const [loading, setLoading] = useState(false);
   const [justSigned, setJustSigned] = useState(false);
+  const [justRemoved, setJustRemoved] = useState(false);
   const [milestoneMsg, setMilestoneMsg] = useState<string | null>(null);
 
   // Check if already co-signed
@@ -32,43 +33,58 @@ export default function CoSignButton({
   }, [reportId]);
 
   const handleCoSign = useCallback(async () => {
-    if (signed || loading) return;
+    if (loading) return;
     setLoading(true);
-
     const hash = getDeviceHash();
 
-    // Try to get user location for evidence weight
-    let lat: number | null = null;
-    let lng: number | null = null;
-    if (navigator.geolocation) {
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            timeout: 3000,
-            maximumAge: 300000,
-          })
-        );
-        lat = pos.coords.latitude;
-        lng = pos.coords.longitude;
-      } catch {
-        // Fine — co-sign without location
-      }
-    }
+    if (signed) {
+      // === UN-COSIGN (toggle off) ===
+      setSigned(false);
+      setCount((c) => Math.max(0, c - 1));
+      setJustRemoved(true);
+      setTimeout(() => setJustRemoved(false), 1500);
 
-    const result = await addCoSign(reportId, hash, lat, lng);
-
-    if (result.success) {
-      setCount(result.totalCosigns);
-      setSigned(true);
-      setJustSigned(true);
-      if (result.milestoneLabel) {
-        setMilestoneMsg(result.milestoneLabel);
-        setTimeout(() => setMilestoneMsg(null), 4000);
+      const result = await removeCoSign(reportId, hash);
+      if (!result.success) {
+        // Revert on failure
+        setSigned(true);
+        setCount(result.newCount);
       }
-      setTimeout(() => setJustSigned(false), 2000);
-    } else if (result.alreadyCosigned) {
-      setSigned(true);
-      setCount(result.totalCosigns);
+    } else {
+      // === CO-SIGN ===
+      // Try to get user location for evidence weight
+      let lat: number | null = null;
+      let lng: number | null = null;
+      if (navigator.geolocation) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              timeout: 3000,
+              maximumAge: 300000,
+            })
+          );
+          lat = pos.coords.latitude;
+          lng = pos.coords.longitude;
+        } catch {
+          // Fine — co-sign without location
+        }
+      }
+
+      const result = await addCoSign(reportId, hash, lat, lng);
+
+      if (result.success) {
+        setCount(result.totalCosigns);
+        setSigned(true);
+        setJustSigned(true);
+        if (result.milestoneLabel) {
+          setMilestoneMsg(result.milestoneLabel);
+          setTimeout(() => setMilestoneMsg(null), 4000);
+        }
+        setTimeout(() => setJustSigned(false), 2000);
+      } else if (result.alreadyCosigned) {
+        setSigned(true);
+        setCount(result.totalCosigns);
+      }
     }
 
     setLoading(false);
@@ -82,7 +98,7 @@ export default function CoSignButton({
           e.stopPropagation();
           handleCoSign();
         }}
-        disabled={signed || loading}
+        disabled={loading}
         className={`flex items-center gap-1.5 transition-all active:scale-90 ${
           signed
             ? "text-[var(--fc-orange)]"
@@ -90,13 +106,13 @@ export default function CoSignButton({
         }`}
       >
         <span
-          className={`text-[14px] transition-transform ${
-            justSigned ? "scale-125" : ""
+          className={`text-[14px] transition-transform duration-300 ${
+            justSigned ? "animate-cosign-pop" : justRemoved ? "animate-cosign-shrink" : ""
           }`}
         >
           🐾
         </span>
-        <span className="text-[12px] font-semibold">
+        <span className="text-[12px] font-semibold tabular-nums">
           {count > 0 ? count : "Co-sign"}
         </span>
       </button>
@@ -111,7 +127,7 @@ export default function CoSignButton({
           e.stopPropagation();
           handleCoSign();
         }}
-        disabled={signed || loading}
+        disabled={loading}
         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all active:scale-95 ${
           signed
             ? "bg-[var(--fc-orange)]/15 border border-[var(--fc-orange)]/30 text-[var(--fc-orange)]"
@@ -120,12 +136,12 @@ export default function CoSignButton({
       >
         <span
           className={`text-[16px] transition-transform duration-300 ${
-            justSigned ? "scale-150 rotate-12" : ""
+            justSigned ? "animate-cosign-pop" : justRemoved ? "animate-cosign-shrink" : ""
           }`}
         >
           🐾
         </span>
-        <span className="text-[13px] font-semibold">
+        <span className="text-[13px] font-semibold tabular-nums">
           {loading
             ? "..."
             : signed
@@ -145,8 +161,15 @@ export default function CoSignButton({
 
       {/* Just-signed confirmation */}
       {justSigned && !milestoneMsg && (
-        <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur text-white text-[11px] font-semibold animate-fade-in">
+        <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur text-white text-[11px] font-semibold animate-slide-up">
           🐾 You&apos;re co-signer #{count}
+        </div>
+      )}
+
+      {/* Just-removed confirmation */}
+      {justRemoved && (
+        <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-1.5 rounded-lg bg-white/[0.06] backdrop-blur text-[var(--fc-muted)] text-[11px] font-semibold animate-slide-up">
+          Co-sign removed
         </div>
       )}
     </div>

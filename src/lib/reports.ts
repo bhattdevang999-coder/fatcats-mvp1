@@ -56,6 +56,7 @@ export async function listReports(filters?: {
   let query = supabase
     .from("reports")
     .select("*")
+    .neq("status", "deleted")
     .order("supporters_count", { ascending: false })
     .order("created_at", { ascending: false });
 
@@ -187,6 +188,7 @@ export async function listMapReports(filters?: {
     .select("id,lat,lng,title,source,status,category,supporters_count,photo_url,created_at")
     .not("lat", "is", null)
     .not("lng", "is", null)
+    .neq("status", "deleted")
     .limit(1000);
 
   if (filters?.category && filters.category !== "all") {
@@ -199,6 +201,44 @@ export async function listMapReports(filters?: {
   const { data, error } = await query;
   if (error) return [];
   return (data as Report[]) || [];
+}
+
+/**
+ * Soft-delete a report. Only the original author (matched by device hash) can delete.
+ * Sets status to 'deleted' rather than hard-deleting, preserving the accountability record.
+ * Also cleans up associated co-signs.
+ */
+export async function deleteReport(
+  reportId: string,
+  deviceHash: string
+): Promise<{ success: boolean; error?: string }> {
+  // Verify ownership
+  const { data: report } = await supabase
+    .from("reports")
+    .select("id, author_device_hash")
+    .eq("id", reportId)
+    .single();
+
+  if (!report) return { success: false, error: "Report not found" };
+  if (report.author_device_hash !== deviceHash) {
+    return { success: false, error: "Only the author can delete this exposé" };
+  }
+
+  // Soft-delete: set status to 'deleted'
+  const { error } = await supabase
+    .from("reports")
+    .update({ status: "deleted" })
+    .eq("id", reportId);
+
+  if (error) {
+    console.error("Error deleting report:", error);
+    return { success: false, error: "Failed to delete" };
+  }
+
+  // Clean up co-signs
+  await supabase.from("cosigns").delete().eq("report_id", reportId);
+
+  return { success: true };
 }
 
 export async function uploadReportPhoto(
